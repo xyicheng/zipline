@@ -28,6 +28,7 @@ from zipline.errors import (
 from zipline.finance.trading import TradingEnvironment
 from zipline.sources.benchmark_source import BenchmarkSource
 from zipline.utils import factory
+from zipline.utils.calendars import default_nyse_schedule
 from zipline.testing.core import create_data_portal, write_minute_data, \
     create_empty_splits_mergers_frame
 from .test_perf_tracking import MockDailyBarSpotReader
@@ -63,8 +64,11 @@ class TestBenchmark(TestCase):
 
         dbpath = os.path.join(cls.tempdir.path, "adjustments.db")
 
-        writer = SQLiteAdjustmentWriter(dbpath, cls.env.trading_days,
-                                        MockDailyBarSpotReader())
+        writer = SQLiteAdjustmentWriter(
+            dbpath,
+            default_nyse_schedule.all_execution_days,
+            MockDailyBarSpotReader()
+        )
         splits = mergers = create_empty_splits_mergers_frame()
         dividends = pd.DataFrame({
             'sid': np.array([], dtype=np.uint32),
@@ -95,6 +99,7 @@ class TestBenchmark(TestCase):
             cls.tempdir,
             cls.sim_params,
             [1, 2, 3, 4],
+            default_nyse_schedule,
             adjustment_reader=SQLiteAdjustmentReader(dbpath)
         )
 
@@ -107,7 +112,7 @@ class TestBenchmark(TestCase):
         days_to_use = self.sim_params.trading_days[1:]
 
         source = BenchmarkSource(
-            1, self.env, days_to_use, self.data_portal
+            1, self.env, default_nyse_schedule, days_to_use, self.data_portal
         )
 
         # should be the equivalent of getting the price history, then doing
@@ -129,6 +134,7 @@ class TestBenchmark(TestCase):
             BenchmarkSource(
                 3,
                 self.env,
+                default_nyse_schedule,
                 self.sim_params.trading_days[1:],
                 self.data_portal
             )
@@ -143,6 +149,7 @@ class TestBenchmark(TestCase):
             BenchmarkSource(
                 3,
                 self.env,
+                default_nyse_schedule,
                 self.sim_params.trading_days[120:],
                 self.data_portal
             )
@@ -156,13 +163,13 @@ class TestBenchmark(TestCase):
     def test_asset_IPOed_same_day(self):
         # gotta get some minute data up in here.
         # add sid 4 for a couple of days
-        minutes = self.env.minutes_for_days_in_range(
+        minutes = default_nyse_schedule.execution_minutes_for_days_in_range(
             self.sim_params.trading_days[0],
             self.sim_params.trading_days[5]
         )
 
         path = write_minute_data(
-            self.env,
+            default_nyse_schedule,
             self.tempdir,
             minutes,
             [2]
@@ -173,6 +180,7 @@ class TestBenchmark(TestCase):
         source = BenchmarkSource(
             2,
             self.env,
+            default_nyse_schedule,
             self.sim_params.trading_days,
             self.data_portal
         )
@@ -198,7 +206,8 @@ class TestBenchmark(TestCase):
 
         with self.assertRaises(InvalidBenchmarkAsset) as exc:
             BenchmarkSource(
-                4, self.env, self.sim_params.trading_days, self.data_portal
+                4, self.env, default_nyse_schedule,
+                self.sim_params.trading_days, self.data_portal
             )
 
         self.assertEqual("4 cannot be used as the benchmark because it has a "

@@ -27,6 +27,7 @@ from zipline.testing import (
     teardown_logger
 )
 import zipline.utils.factory as factory
+from zipline.utils.calendars import default_nyse_schedule
 from zipline.testing.core import create_data_portal
 
 DEFAULT_TIMEOUT = 15  # seconds
@@ -43,16 +44,14 @@ class ExceptionTestCase(TestCase):
 
         cls.tempdir = TempDirectory()
 
-        cls.sim_params = factory.create_simulation_parameters(
-            num_days=4,
-            env=cls.env
-        )
+        cls.sim_params = factory.create_simulation_parameters(num_days=4)
 
         cls.data_portal = create_data_portal(
             env=cls.env,
             tempdir=cls.tempdir,
             sim_params=cls.sim_params,
-            sids=[cls.sid]
+            sids=[cls.sid],
+            trading_schedule=default_nyse_schedule,
         )
 
         setup_logger(cls)

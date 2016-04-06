@@ -52,12 +52,12 @@ from zipline.pipeline.loaders.equity_pricing_loader import (
 )
 
 from zipline.errors import WindowLengthTooLong
-from zipline.finance.trading import TradingEnvironment
 from zipline.pipeline.data import USEquityPricing
 from zipline.testing import (
     seconds_to_timestamp,
     str_to_seconds,
 )
+from zipline.utils.calendars import default_nyse_schedule
 
 # Test calendar ranges over the month of June 2015
 #      June 2015
@@ -271,7 +271,7 @@ class USEquityPricingLoaderTestCase(TestCase):
     def setUpClass(cls):
         cls.test_data_dir = TempDirectory()
         cls.db_path = cls.test_data_dir.getpath('adjustments.db')
-        all_days = TradingEnvironment().trading_days
+        all_days = default_nyse_schedule.all_execution_days
         cls.calendar_days = all_days[
             all_days.slice_indexer(TEST_CALENDAR_START, TEST_CALENDAR_STOP)
         ]

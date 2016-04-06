@@ -49,6 +49,7 @@ from zipline.utils.factory import create_simulation_parameters
 from zipline.utils.serialization_utils import (
     loads_with_persistent_ids, dumps_with_persistent_ids
 )
+from zipline.utils.calendars import default_nyse_schedule
 from zipline.testing.core import create_data_portal_from_trade_history, \
     create_empty_splits_mergers_frame, FakeDataPortal
 
@@ -167,7 +168,8 @@ def calculate_results(sim_params,
     splits = splits or {}
     commissions = commissions or {}
 
-    perf_tracker = perf.PerformanceTracker(sim_params, env, data_portal)
+    perf_tracker = perf.PerformanceTracker(sim_params, default_nyse_schedule,
+                                           env, data_portal)
 
     results = []
 
@@ -230,7 +232,9 @@ def setup_env_data(env, sim_params, sids, futures_sids=[]):
     for sid in sids:
         data[sid] = {
             "start_date": sim_params.trading_days[0],
-            "end_date": env.next_trading_day(sim_params.trading_days[-1])
+            "end_date": default_nyse_schedule.next_execution_day(
+                sim_params.trading_days[-1]
+            )
         }
 
     env.write_data(equities_data=data)
@@ -239,7 +243,9 @@ def setup_env_data(env, sim_params, sids, futures_sids=[]):
     for future_sid in futures_sids:
         futures_data[future_sid] = {
             "start_date": sim_params.trading_days[0],
-            "end_date": env.next_trading_day(sim_params.trading_days[-1]),
+            "end_date": default_nyse_schedule.next_execution_day(
+                sim_params.trading_days[-1]
+            ),
             "multiplier": 100
         }
 
@@ -266,7 +272,7 @@ class TestSplitPerformance(unittest.TestCase):
         # if multiple positions all have splits at the same time, verify that
         # the total leftover cash is correct
         perf_tracker = perf.PerformanceTracker(
-            self.sim_params, self.env, FakeDataPortal()
+            self.sim_params, default_nyse_schedule, self.env, FakeDataPortal()
         )
 
         asset1 = self.env.asset_finder.retrieve_asset(1)
@@ -296,13 +302,14 @@ class TestSplitPerformance(unittest.TestCase):
             [100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         # set up a long position in sid 1
         # 100 shares at $20 apiece = $2000 position
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: events},
@@ -410,7 +417,7 @@ class TestCommissionEvents(unittest.TestCase):
             [100, 100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         # Test commission models and validate result
@@ -422,6 +429,7 @@ class TestCommissionEvents(unittest.TestCase):
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: trade_events},
@@ -501,11 +509,12 @@ class TestCommissionEvents(unittest.TestCase):
             [100, 100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: events},
@@ -543,11 +552,12 @@ class TestCommissionEvents(unittest.TestCase):
             [100, 100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: events},
@@ -604,7 +614,7 @@ class TestDividendPerformance(unittest.TestCase):
         after = factory.get_next_trading_dt(
             before,
             timedelta(days=1),
-            self.env,
+            default_nyse_schedule,
         )
         self.assertEqual(after.hour, 13)
 
@@ -616,13 +626,16 @@ class TestDividendPerformance(unittest.TestCase):
             [100, 100, 100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         dbpath = self.tempdir.getpath('adjustments.sqlite')
 
-        writer = SQLiteAdjustmentWriter(dbpath, self.env.trading_days,
-                                        MockDailyBarSpotReader())
+        writer = SQLiteAdjustmentWriter(
+            dbpath,
+            default_nyse_schedule.all_execution_days,
+            MockDailyBarSpotReader()
+        )
         splits = mergers = create_empty_splits_mergers_frame()
         dividends = pd.DataFrame({
             'sid': np.array([1], dtype=np.uint32),
@@ -637,6 +650,7 @@ class TestDividendPerformance(unittest.TestCase):
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: events},
@@ -679,13 +693,16 @@ class TestDividendPerformance(unittest.TestCase):
                 [100, 100, 100, 100, 100, 100],
                 oneday,
                 self.sim_params,
-                env=self.env
+                trading_schedule=default_nyse_schedule,
             )
 
         dbpath = self.tempdir.getpath('adjustments.sqlite')
 
-        writer = SQLiteAdjustmentWriter(dbpath, self.env.trading_days,
-                                        MockDailyBarSpotReader())
+        writer = SQLiteAdjustmentWriter(
+            dbpath,
+            default_nyse_schedule.all_execution_days,
+            MockDailyBarSpotReader()
+        )
         splits = mergers = create_empty_splits_mergers_frame()
         dividends = pd.DataFrame({
             'sid': np.array([], dtype=np.uint32),
@@ -710,6 +727,7 @@ class TestDividendPerformance(unittest.TestCase):
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             events,
@@ -750,13 +768,16 @@ class TestDividendPerformance(unittest.TestCase):
             [100, 100, 100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         dbpath = self.tempdir.getpath('adjustments.sqlite')
 
-        writer = SQLiteAdjustmentWriter(dbpath, self.env.trading_days,
-                                        MockDailyBarSpotReader())
+        writer = SQLiteAdjustmentWriter(
+            dbpath,
+            default_nyse_schedule.all_execution_days,
+            MockDailyBarSpotReader()
+        )
         splits = mergers = create_empty_splits_mergers_frame()
         dividends = pd.DataFrame({
             'sid': np.array([1], dtype=np.uint32),
@@ -771,6 +792,7 @@ class TestDividendPerformance(unittest.TestCase):
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: events},
@@ -808,13 +830,16 @@ class TestDividendPerformance(unittest.TestCase):
             [100, 100, 100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         dbpath = self.tempdir.getpath('adjustments.sqlite')
 
-        writer = SQLiteAdjustmentWriter(dbpath, self.env.trading_days,
-                                        MockDailyBarSpotReader())
+        writer = SQLiteAdjustmentWriter(
+            dbpath,
+            default_nyse_schedule.all_execution_days,
+            MockDailyBarSpotReader()
+        )
         splits = mergers = create_empty_splits_mergers_frame()
         dividends = pd.DataFrame({
             'sid': np.array([1], dtype=np.uint32),
@@ -829,6 +854,7 @@ class TestDividendPerformance(unittest.TestCase):
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: events},
@@ -867,12 +893,15 @@ class TestDividendPerformance(unittest.TestCase):
             [100, 100, 100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
         dbpath = self.tempdir.getpath('adjustments.sqlite')
 
-        writer = SQLiteAdjustmentWriter(dbpath, self.env.trading_days,
-                                        MockDailyBarSpotReader())
+        writer = SQLiteAdjustmentWriter(
+            dbpath,
+            default_nyse_schedule.all_execution_days,
+            MockDailyBarSpotReader()
+        )
         splits = mergers = create_empty_splits_mergers_frame()
 
         dividends = pd.DataFrame({
@@ -888,6 +917,7 @@ class TestDividendPerformance(unittest.TestCase):
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: events},
@@ -924,18 +954,21 @@ class TestDividendPerformance(unittest.TestCase):
             [100, 100, 100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         pay_date = self.sim_params.first_open
         # find pay date that is much later.
         for i in range(30):
-            pay_date = factory.get_next_trading_dt(pay_date, oneday, self.env)
+            pay_date = factory.get_next_trading_dt(pay_date, oneday,
+                                                   default_nyse_schedule)
 
         dbpath = self.tempdir.getpath('adjustments.sqlite')
 
-        writer = SQLiteAdjustmentWriter(dbpath, self.env.trading_days,
-                                        MockDailyBarSpotReader())
+        writer = SQLiteAdjustmentWriter(
+            dbpath,
+            default_nyse_schedule.all_execution_days,
+            MockDailyBarSpotReader())
         splits = mergers = create_empty_splits_mergers_frame()
         dividends = pd.DataFrame({
             'sid': np.array([1], dtype=np.uint32),
@@ -950,6 +983,7 @@ class TestDividendPerformance(unittest.TestCase):
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: events},
@@ -987,12 +1021,13 @@ class TestDividendPerformance(unittest.TestCase):
             [100, 100, 100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         dbpath = self.tempdir.getpath('adjustments.sqlite')
 
-        writer = SQLiteAdjustmentWriter(dbpath, self.env.trading_days,
+        writer = SQLiteAdjustmentWriter(dbpath,
+                                        default_nyse_schedule.all_execution_days,
                                         MockDailyBarSpotReader())
         splits = mergers = create_empty_splits_mergers_frame()
         dividends = pd.DataFrame({
@@ -1008,6 +1043,7 @@ class TestDividendPerformance(unittest.TestCase):
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: events},
@@ -1042,13 +1078,16 @@ class TestDividendPerformance(unittest.TestCase):
             [100, 100, 100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         dbpath = self.tempdir.getpath('adjustments.sqlite')
 
-        writer = SQLiteAdjustmentWriter(dbpath, self.env.trading_days,
-                                        MockDailyBarSpotReader())
+        writer = SQLiteAdjustmentWriter(
+            dbpath,
+            default_nyse_schedule.all_execution_days,
+            MockDailyBarSpotReader()
+        )
         splits = mergers = create_empty_splits_mergers_frame()
         dividends = pd.DataFrame({
             'sid': np.array([1], dtype=np.uint32),
@@ -1063,6 +1102,7 @@ class TestDividendPerformance(unittest.TestCase):
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: events},
@@ -1095,13 +1135,16 @@ class TestDividendPerformance(unittest.TestCase):
             [100, 100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         dbpath = self.tempdir.getpath('adjustments.sqlite')
 
-        writer = SQLiteAdjustmentWriter(dbpath, self.env.trading_days,
-                                        MockDailyBarSpotReader())
+        writer = SQLiteAdjustmentWriter(
+            dbpath,
+            default_nyse_schedule.all_execution_days,
+            MockDailyBarSpotReader()
+        )
         splits = mergers = create_empty_splits_mergers_frame()
         dividends = pd.DataFrame({
             'sid': np.array([1], dtype=np.uint32),
@@ -1109,8 +1152,9 @@ class TestDividendPerformance(unittest.TestCase):
             'declared_date': np.array([events[-3].dt], dtype='datetime64[ns]'),
             'ex_date': np.array([events[-2].dt], dtype='datetime64[ns]'),
             'record_date': np.array([events[0].dt], dtype='datetime64[ns]'),
-            'pay_date': np.array([self.env.next_trading_day(events[-1].dt)],
-                                 dtype='datetime64[ns]'),
+            'pay_date': np.array(
+                [default_nyse_schedule.next_execution_day(events[-1].dt)],
+                dtype='datetime64[ns]'),
         })
         writer.write(splits, mergers, dividends)
         adjustment_reader = SQLiteAdjustmentReader(dbpath)
@@ -1124,10 +1168,11 @@ class TestDividendPerformance(unittest.TestCase):
         )
 
         sim_params.period_end = events[-1].dt
-        sim_params.update_internal_from_env(self.env)
+        sim_params.update_internal_from_trading_schedule(default_nyse_schedule)
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             sim_params,
             {1: events},
@@ -1218,7 +1263,7 @@ class TestPositionPerformance(unittest.TestCase):
             [100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         trades_2 = factory.create_trade_history(
@@ -1227,11 +1272,12 @@ class TestPositionPerformance(unittest.TestCase):
             [100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: trades_1, 2: trades_2}
@@ -1324,11 +1370,12 @@ class TestPositionPerformance(unittest.TestCase):
             [100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: trades})
@@ -1416,11 +1463,12 @@ class TestPositionPerformance(unittest.TestCase):
             [100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: trades})
@@ -1532,13 +1580,14 @@ single short-sale transaction"""
             [100, 100, 100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         trades_1 = trades[:-2]
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: trades})
@@ -1767,11 +1816,12 @@ cost of sole txn in test"
             [100, 100, 100, 100],
             oneday,
             sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {3: trades}
@@ -1887,11 +1937,12 @@ single short-sale transaction"""
             [100, 100, 100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {3: trades}
@@ -2133,11 +2184,12 @@ trade after cover"""
             [100, 100, 100, 100, 100, 100, 100, 100, 100, 100],
             oneday,
             self.sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: trades})
@@ -2220,13 +2272,14 @@ shares in position"
             [100, 100, 100, 100, 100],
             oneday,
             self.sim_params,
-            self.env
+            default_nyse_schedule,
         )
         trades = factory.create_trade_history(*history_args)
         transactions = factory.create_txn_history(*history_args)[:4]
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: trades})
@@ -2347,7 +2400,7 @@ shares in position"
             [200, -100, -100, 100, -300, 100, 500, 400],
             oneday,
             self.sim_params,
-            self.env
+            default_nyse_schedule,
         )
         cost_bases = [10, 10, 0, 8, 9, 9, 13, 13.5]
 
@@ -2356,6 +2409,7 @@ shares in position"
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             {1: trades})
@@ -2410,20 +2464,19 @@ class TestPositionTracker(unittest.TestCase):
         Originally this bug was due to np.dot([], []) returning
         np.bool_(False)
         """
-        sim_params = factory.create_simulation_parameters(
-            num_days=4, env=self.env
-        )
+        sim_params = factory.create_simulation_parameters(num_days=4)
         trades = factory.create_trade_history(
             1,
             [10, 10, 10, 11],
             [100, 100, 100, 100],
             oneday,
             sim_params,
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             sim_params,
             {1: trades})

@@ -600,3 +600,22 @@ class HistoryWindowStartsBeforeData(ZiplineError):
         "History window extends before {first_trading_day}. To use this "
         "history window, start the backtest on or after {suggested_start_day}."
         )
+
+
+class InvalidCalendarName(ZiplineError):
+    """
+    Raised when a calendar with an invalid name is requested.
+    """
+    msg = (
+        "The requested ExchangeCalendar, {calendar_name}, does not exist."
+    )
+
+
+class CalendarNameCollision(ZiplineError):
+    """
+    Raised when the static calendar registry already has a calendar with a
+    given name.
+    """
+    msg = (
+        "A calendar with the name {calendar_name} is already registered."
+    )

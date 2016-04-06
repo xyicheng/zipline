@@ -43,8 +43,7 @@ from zipline.data.minute_bars import (
     BcolzMinuteOverlappingData,
     US_EQUITIES_MINUTES_PER_DAY,
 )
-from zipline.finance.trading import TradingEnvironment
-
+from zipline.utils.calendars import get_calendar, default_nyse_schedule
 
 TEST_CALENDAR_START = Timestamp('2015-06-01', tz='UTC')
 TEST_CALENDAR_STOP = Timestamp('2015-12-31', tz='UTC')
@@ -54,15 +53,11 @@ class BcolzMinuteBarTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.env = TradingEnvironment()
-        all_market_opens = cls.env.open_and_closes.market_open
-        all_market_closes = cls.env.open_and_closes.market_close
-        indexer = all_market_opens.index.slice_indexer(
-            start=TEST_CALENDAR_START,
-            end=TEST_CALENDAR_STOP
+        trading_days = get_calendar('NYSE').trading_days(
+            TEST_CALENDAR_START, TEST_CALENDAR_STOP
         )
-        cls.market_opens = all_market_opens[indexer]
-        cls.market_closes = all_market_closes[indexer]
+        cls.market_opens = trading_days.market_open
+        cls.market_closes = trading_days.market_close
         cls.test_calendar_start = cls.market_opens.index[0]
         cls.test_calendar_stop = cls.market_opens.index[-1]
 
@@ -685,10 +680,12 @@ class BcolzMinuteBarTestCase(TestCase):
 
         data = {sids[0]: data_1, sids[1]: data_2}
 
-        start_minute_loc = self.env.market_minutes.get_loc(minutes[0])
-        minute_locs = [self.env.market_minutes.get_loc(minute) -
-                       start_minute_loc
-                       for minute in minutes]
+        start_minute_loc = \
+            default_nyse_schedule.all_execution_minutes.get_loc(minutes[0])
+        minute_locs = [
+            default_nyse_schedule.all_execution_minutes.get_loc(minute) \
+            - start_minute_loc
+            for minute in minutes]
 
         for i, col in enumerate(columns):
             for j, sid in enumerate(sids):
@@ -707,7 +704,9 @@ class BcolzMinuteBarTestCase(TestCase):
             'close': arange(1, 781),
             'volume': arange(1, 781)
         }
-        dts = array(self.env.minutes_for_days_in_range(start_day, end_day))
+        dts = array(default_nyse_schedule.execution_minutes_for_days_in_range(
+            start_day, end_day
+        ))
         self.writer.write_cols(sid, dts, cols)
 
         self.assertEqual(
@@ -749,7 +748,9 @@ class BcolzMinuteBarTestCase(TestCase):
             'close': arange(1, 601),
             'volume': arange(1, 601)
         }
-        dts = array(self.env.minutes_for_days_in_range(start_day, end_day))
+        dts = array(default_nyse_schedule.execution_minutes_for_days_in_range(
+            start_day, end_day
+        ))
         self.writer.write_cols(sid, dts, cols)
 
         self.assertEqual(

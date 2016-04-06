@@ -39,6 +39,7 @@ from zipline.data.minute_bars import BcolzMinuteBarReader
 from zipline.data.data_portal import DataPortal
 from zipline.protocol import BarData
 from zipline.testing.core import write_bcolz_minute_data
+from zipline.utils.calendars import default_nyse_schedule
 
 
 class SlippageTestCase(TestCase):
@@ -54,7 +55,7 @@ class SlippageTestCase(TestCase):
             capital_base=1.0e5,
             data_frequency="minute",
             emission_rate='daily',
-            env=cls.env
+            trading_schedule=default_nyse_schedule,
         )
 
         cls.sids = [133]
@@ -77,7 +78,7 @@ class SlippageTestCase(TestCase):
         }
 
         write_bcolz_minute_data(
-            cls.env,
+            default_nyse_schedule,
             pd.date_range(
                 start=normalize_date(cls.minutes[0]),
                 end=normalize_date(cls.minutes[-1])
@@ -96,7 +97,7 @@ class SlippageTestCase(TestCase):
         cls.ASSET133 = cls.env.asset_finder.retrieve_asset(133)
 
         cls.data_portal = DataPortal(
-            cls.env,
+            cls.env, default_nyse_schedule,
             equity_minute_reader=BcolzMinuteBarReader(cls.tempdir.path),
         )
 
@@ -121,7 +122,7 @@ class SlippageTestCase(TestCase):
             }
 
             write_bcolz_minute_data(
-                self.env,
+                default_nyse_schedule,
                 pd.date_range(
                     start=normalize_date(self.minutes[0]),
                     end=normalize_date(self.minutes[-1])
@@ -133,7 +134,7 @@ class SlippageTestCase(TestCase):
             equity_minute_reader = BcolzMinuteBarReader(tempdir.path)
 
             data_portal = DataPortal(
-                self.env,
+                self.env, default_nyse_schedule,
                 equity_minute_reader=equity_minute_reader,
             )
 
@@ -521,7 +522,7 @@ class SlippageTestCase(TestCase):
             }
 
             write_bcolz_minute_data(
-                self.env,
+                default_nyse_schedule,
                 pd.date_range(
                     start=normalize_date(self.minutes[0]),
                     end=normalize_date(self.minutes[-1])
@@ -533,7 +534,7 @@ class SlippageTestCase(TestCase):
             equity_minute_reader = BcolzMinuteBarReader(tempdir.path)
 
             data_portal = DataPortal(
-                self.env,
+                self.env, default_nyse_schedule,
                 equity_minute_reader=equity_minute_reader,
             )
 

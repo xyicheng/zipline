@@ -122,7 +122,7 @@ from zipline.utils.control_flow import nullctx
 import zipline.utils.events
 from zipline.utils.events import DateRuleFactory, TimeRuleFactory, Always
 import zipline.utils.factory as factory
-from zipline.utils.tradingcalendar import trading_day, trading_days
+from zipline.utils.calendars import default_nyse_schedule
 
 # Because test cases appear to reuse some resources.
 
@@ -138,10 +138,7 @@ class TestRecordAlgorithm(TestCase):
         cls.sids = [133]
         cls.env.write_data(equities_identifiers=cls.sids)
 
-        cls.sim_params = factory.create_simulation_parameters(
-            num_days=4,
-            env=cls.env
-        )
+        cls.sim_params = factory.create_simulation_parameters(num_days=4)
 
         cls.tempdir = TempDirectory()
 
@@ -149,7 +146,8 @@ class TestRecordAlgorithm(TestCase):
             cls.env,
             cls.tempdir,
             cls.sim_params,
-            cls.sids
+            cls.sids,
+            default_nyse_schedule,
         )
 
     @classmethod
@@ -221,7 +219,6 @@ class TestMiscellaneousAPI(TestCase):
             num_days=2,
             data_frequency='minute',
             emission_rate='daily',
-            env=cls.env,
         )
 
         cls.temp_dir = TempDirectory()
@@ -230,7 +227,8 @@ class TestMiscellaneousAPI(TestCase):
             cls.env,
             cls.temp_dir,
             cls.sim_params,
-            cls.sids
+            cls.sids,
+            default_nyse_schedule,
         )
 
     @classmethod
@@ -724,8 +722,7 @@ class TestTransformAlgorithm(TestCase):
     def setUpClass(cls):
         setup_logger(cls)
         cls.env = TradingEnvironment()
-        cls.sim_params = factory.create_simulation_parameters(num_days=4,
-                                                              env=cls.env)
+        cls.sim_params = factory.create_simulation_parameters(num_days=4)
         cls.sids = [0, 1, 133]
         cls.tempdir = TempDirectory()
 
@@ -752,13 +749,16 @@ class TestTransformAlgorithm(TestCase):
                 [100, 100, 100, 300],
                 timedelta(days=1),
                 cls.sim_params,
-                cls.env
+                trading_schedule=default_nyse_schedule,
             )
 
-        cls.data_portal = create_data_portal_from_trade_history(cls.env,
-                                                                cls.tempdir,
-                                                                cls.sim_params,
-                                                                trades_by_sid)
+        cls.data_portal = create_data_portal_from_trade_history(
+            cls.env,
+            default_nyse_schedule,
+            cls.tempdir,
+            cls.sim_params,
+            trades_by_sid
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -802,7 +802,7 @@ class TestTransformAlgorithm(TestCase):
         self.sim_params.data_frequency = 'daily'
 
         sim_params = factory.create_simulation_parameters(
-            num_days=4, env=self.env, data_frequency='daily')
+            num_days=4, data_frequency='daily')
 
         algo = TestRegisterTransformAlgorithm(
             sim_params=sim_params,
@@ -811,7 +811,7 @@ class TestTransformAlgorithm(TestCase):
         self.assertEqual(algo.sim_params.data_frequency, 'daily')
 
         sim_params = factory.create_simulation_parameters(
-            num_days=4, env=self.env, data_frequency='minute')
+            num_days=4, data_frequency='minute')
 
         algo = TestRegisterTransformAlgorithm(
             sim_params=sim_params,
@@ -926,7 +926,7 @@ class TestTransformAlgorithm(TestCase):
                 period_end=pd.Timestamp('2002-1-4', tz='UTC'),
                 capital_base=float("1.0e5"),
                 data_frequency='minute',
-                env=env
+                trading_schedule=default_nyse_schedule,
             )
 
             equities_metadata = {}
@@ -943,7 +943,8 @@ class TestTransformAlgorithm(TestCase):
                 env,
                 tempdir,
                 sim_params,
-                [0, 1]
+                [0, 1],
+                default_nyse_schedule,
             )
 
             algo = algo_class(sim_params=sim_params, env=env)
@@ -957,8 +958,7 @@ class TestPositions(TestCase):
     def setUpClass(cls):
         setup_logger(cls)
         cls.env = TradingEnvironment()
-        cls.sim_params = factory.create_simulation_parameters(num_days=4,
-                                                              env=cls.env)
+        cls.sim_params = factory.create_simulation_parameters(num_days=4)
 
         cls.sids = [1, 133]
         cls.tempdir = TempDirectory()
@@ -977,7 +977,8 @@ class TestPositions(TestCase):
             cls.env,
             cls.tempdir,
             cls.sim_params,
-            cls.sids
+            cls.sids,
+            default_nyse_schedule,
         )
 
     @classmethod
@@ -1433,8 +1434,7 @@ class TestAlgoScript(TestCase):
     def setUpClass(cls):
         setup_logger(cls)
         cls.env = TradingEnvironment()
-        cls.sim_params = factory.create_simulation_parameters(num_days=251,
-                                                              env=cls.env)
+        cls.sim_params = factory.create_simulation_parameters(num_days=251)
 
         cls.sids = [0, 1, 3, 133]
         cls.tempdir = TempDirectory()
@@ -1444,7 +1444,9 @@ class TestAlgoScript(TestCase):
         for sid in cls.sids:
             equities_metadata[sid] = {
                 'start_date': cls.sim_params.period_start,
-                'end_date': cls.env.next_trading_day(cls.sim_params.period_end)
+                'end_date': default_nyse_schedule.next_execution_day(
+                    cls.sim_params.period_end
+                )
             }
 
             if sid == 3:
@@ -1462,18 +1464,24 @@ class TestAlgoScript(TestCase):
                 [100] * days,
                 timedelta(days=1),
                 cls.sim_params,
-                cls.env),
+                trading_schedule=default_nyse_schedule,
+            ),
             3: factory.create_trade_history(
                 3,
                 [10.0] * days,
                 [100] * days,
                 timedelta(days=1),
                 cls.sim_params,
-                cls.env)
+                trading_schedule=default_nyse_schedule,
+            )
         }
 
         cls.data_portal = create_data_portal_from_trade_history(
-            cls.env, cls.tempdir, cls.sim_params, cls.trades_by_sid
+            cls.env,
+            default_nyse_schedule,
+            cls.tempdir,
+            cls.sim_params,
+            cls.trades_by_sid
         )
 
     @classmethod
@@ -1609,9 +1617,10 @@ def handle_data(context, data):
             )
             set_algo_instance(test_algo)
             trades = factory.create_daily_trade_source(
-                [0], self.sim_params, self.env)
+                [0], self.sim_params, self.env, default_nyse_schedule)
             data_portal = create_data_portal_from_trade_history(
-                self.env, tempdir, self.sim_params, {0: trades})
+                self.env, default_nyse_schedule, tempdir, self.sim_params,
+                {0: trades})
             results = test_algo.run(data_portal)
 
             all_txns = [
@@ -1683,7 +1692,7 @@ def handle_data(context, data):
         params = SimulationParameters(
             period_start=pd.Timestamp("2007-01-03", tz='UTC'),
             period_end=pd.Timestamp("2007-01-05", tz='UTC'),
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         # order method shouldn't blow up
@@ -1792,6 +1801,7 @@ def handle_data(context, data):
         """
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             self.trades_by_sid
@@ -1803,7 +1813,7 @@ def handle_data(context, data):
             capital_base=self.sim_params.capital_base,
             data_frequency=self.sim_params.data_frequency,
             emission_rate=self.sim_params.emission_rate,
-            env=self.env,
+            trading_schedule=default_nyse_schedule,
         )
 
         test_algo = TradingAlgorithm(
@@ -1851,7 +1861,6 @@ class TestGetDatetime(TestCase):
 
         cls.sim_params = factory.create_simulation_parameters(
             data_frequency='minute',
-            env=cls.env,
             start=to_utc('2014-01-02 9:31'),
             end=to_utc('2014-01-03 9:31')
         )
@@ -1862,7 +1871,8 @@ class TestGetDatetime(TestCase):
             cls.env,
             cls.tempdir,
             cls.sim_params,
-            [1]
+            [1],
+            default_nyse_schedule,
         )
 
     @classmethod
@@ -1918,17 +1928,20 @@ class TestTradingControls(TestCase):
     def setUpClass(cls):
         cls.sid = 133
         cls.env = TradingEnvironment()
-        cls.sim_params = factory.create_simulation_parameters(num_days=4,
-                                                              env=cls.env)
+        cls.sim_params = factory.create_simulation_parameters(num_days=4)
 
         cls.env.write_data(equities_data={
             133: {
                 'start_date': cls.sim_params.period_start,
-                'end_date': cls.env.next_trading_day(cls.sim_params.period_end)
+                'end_date': default_nyse_schedule.next_execution_day(
+                    cls.sim_params.period_end
+                )
             },
             134: {
                 'start_date': cls.sim_params.period_start,
-                'end_date': cls.env.next_trading_day(cls.sim_params.period_end)
+                'end_date': default_nyse_schedule.next_execution_day(
+                    cls.sim_params.period_end
+                )
             }
         })
 
@@ -1941,7 +1954,8 @@ class TestTradingControls(TestCase):
             cls.env,
             cls.tempdir,
             cls.sim_params,
-            [cls.sid]
+            [cls.sid],
+            default_nyse_schedule,
         )
 
     @classmethod
@@ -2128,7 +2142,7 @@ class TestTradingControls(TestCase):
         try:
             env = TradingEnvironment()
             sim_params = factory.create_simulation_parameters(
-                num_days=4, env=env, data_frequency="minute")
+                num_days=4, data_frequency="minute")
 
             env.write_data(equities_data={
                 1: {
@@ -2141,7 +2155,8 @@ class TestTradingControls(TestCase):
                 env,
                 tempdir,
                 sim_params,
-                [1]
+                [1],
+                default_nyse_schedule,
             )
 
             def handle_data(algo, data):
@@ -2259,7 +2274,8 @@ class TestTradingControls(TestCase):
                 temp_env,
                 tempdir,
                 self.sim_params,
-                [0]
+                [0],
+                default_nyse_schedule,
             )
 
             metadata = {0: {'start_date': self.sim_params.period_start,
@@ -2283,7 +2299,8 @@ class TestTradingControls(TestCase):
                 temp_env,
                 tempdir,
                 self.sim_params,
-                [0]
+                [0],
+                default_nyse_schedule,
             )
             metadata = {0: {'start_date': '1989-01-01',
                             'end_date': '1990-01-01'}}
@@ -2306,7 +2323,8 @@ class TestTradingControls(TestCase):
                 temp_env,
                 tempdir,
                 self.sim_params,
-                [0]
+                [0],
+                default_nyse_schedule,
             )
 
             metadata = {0: {'start_date': '2020-01-01',
@@ -2331,9 +2349,7 @@ class TestAccountControls(TestCase):
     def setUpClass(cls):
         cls.sidint = 133
         cls.env = TradingEnvironment()
-        cls.sim_params = factory.create_simulation_parameters(
-            num_days=4, env=cls.env
-        )
+        cls.sim_params = factory.create_simulation_parameters(num_days=4)
 
         cls.env.write_data(equities_data={
             133: {
@@ -2351,14 +2367,17 @@ class TestAccountControls(TestCase):
                 [100, 100, 100, 300],
                 timedelta(days=1),
                 cls.sim_params,
-                cls.env,
+                trading_schedule=default_nyse_schedule,
             )
         }
 
-        cls.data_portal = create_data_portal_from_trade_history(cls.env,
-                                                                cls.tempdir,
-                                                                cls.sim_params,
-                                                                trades_by_sid)
+        cls.data_portal = create_data_portal_from_trade_history(
+            cls.env,
+            default_nyse_schedule,
+            cls.tempdir,
+            cls.sim_params,
+            trades_by_sid
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -2513,7 +2532,7 @@ class TestFutureFlip(TestCase):
             [1e9, 1e9, 1e9],
             timedelta(days=1),
             cls.sim_params,
-            cls.env
+            trading_schedule=default_nyse_schedule,
         )
 
         trades_by_sid = {
@@ -2522,6 +2541,7 @@ class TestFutureFlip(TestCase):
 
         cls.data_portal = create_data_portal_from_trade_history(
             cls.env,
+            default_nyse_schedule,
             cls.tempdir,
             cls.sim_params,
             trades_by_sid
@@ -2535,7 +2555,7 @@ class TestFutureFlip(TestCase):
     def test_flip_algo(self):
         metadata = {1: {'symbol': 'TEST',
                         'start_date': self.sim_params.trading_days[0],
-                        'end_date': self.env.next_trading_day(
+                        'end_date': default_nyse_schedule.next_execution_day(
                             self.sim_params.trading_days[-1]),
                         'multiplier': 5}}
 
@@ -2573,7 +2593,7 @@ class TestFutureFlip(TestCase):
 class TestTradingAlgorithm(TestCase):
     def setUp(self):
         self.env = TradingEnvironment()
-        self.days = self.env.trading_days[:4]
+        self.days = default_nyse_schedule.all_execution_days[:4]
 
     def test_analyze_called(self):
         self.perf_ref = None
@@ -2916,8 +2936,12 @@ class TestEquityAutoClose(TestCase):
 
         env = TradingEnvironment()
         env.write_data(equities_data=asset_info)
-        market_opens = env.open_and_closes.market_open.loc[self.test_days]
-        market_closes = env.open_and_closes.market_close.loc[self.test_days]
+        market_opens = default_nyse_schedule.schedule.market_open.loc[
+            self.test_days
+        ]
+        market_closes = default_nyse_schedule.schedule.market_close.loc[
+            self.test_days
+        ]
 
         if frequency == 'daily':
             dates = self.test_days
@@ -2936,11 +2960,11 @@ class TestEquityAutoClose(TestCase):
             writer = DailyBarWriterFromDataFrames(trade_data_by_sid)
             writer.write(path, dates, trade_data_by_sid)
             data_portal = DataPortal(
-                env,
+                env, default_nyse_schedule,
                 equity_daily_reader=BcolzDailyBarReader(path)
             )
         elif frequency == 'minute':
-            dates = env.minutes_for_days_in_range(
+            dates = default_nyse_schedule.execution_minutes_for_days_in_range(
                 self.test_days[0],
                 self.test_days[-1],
             )
@@ -2964,7 +2988,7 @@ class TestEquityAutoClose(TestCase):
                 frequency=frequency
             )
             data_portal = DataPortal(
-                env,
+                env, default_nyse_schedule,
                 equity_minute_reader=BcolzMinuteBarReader(self.tempdir.path)
             )
         else:
@@ -2977,7 +3001,6 @@ class TestEquityAutoClose(TestCase):
             end=self.test_days[-1],
             data_frequency=frequency,
             emission_rate=frequency,
-            env=env,
             capital_base=capital_base,
         )
 
@@ -2994,7 +3017,7 @@ class TestEquityAutoClose(TestCase):
         else:
             final_prices = {
                 asset.sid: trade_data_by_sid[asset.sid].loc[
-                    env.get_open_and_close(asset.end_date)[1]
+                    default_nyse_schedule.start_and_end(asset.end_date)[1]
                 ].close
                 for asset in assets
             }
@@ -3348,6 +3371,9 @@ class TestEquityAutoClose(TestCase):
         expected_cash.extend([after_second_auto_close] * (390 + 390))
         expected_position_counts.extend([1] * (390 + 390))
 
+        # Check list lengths first to avoid expensive comparison
+        self.assertEqual(len(algo.cash), len(expected_cash))
+        # TODO find more efficient way to compare these lists
         self.assertEqual(algo.cash, expected_cash)
         self.assertEqual(
             list(output['ending_cash']),
@@ -3432,7 +3458,7 @@ class TestOrderAfterDelist(TestCase):
     def setUpClass(cls):
         cls.env = TradingEnvironment()
 
-        cls.days = cls.env.days_in_range(
+        cls.days = default_nyse_schedule.execution_days_in_range(
             start=pd.Timestamp("2016-01-05", tz='UTC'),
             end=pd.Timestamp("2016-01-15", tz='UTC')
         )
@@ -3481,7 +3507,7 @@ class TestOrderAfterDelist(TestCase):
             sim_params=SimulationParameters(
                 period_start=pd.Timestamp("2016-01-06", tz='UTC'),
                 period_end=pd.Timestamp("2016-01-07", tz='UTC'),
-                env=self.env,
+                trading_schedule=default_nyse_schedule,
                 data_frequency="minute"
             )
         )

@@ -43,6 +43,7 @@ from .utils.daily_bar_writer import DailyBarWriterFromDataFrames
 from zipline.data.us_equity_pricing import BcolzDailyBarReader
 from zipline.data.data_portal import DataPortal
 from zipline.protocol import BarData
+from zipline.utils.calendars import default_nyse_schedule
 
 
 class BlotterTestCase(TestCase):
@@ -60,13 +61,13 @@ class BlotterTestCase(TestCase):
         cls.env.write_data(equities_data={
             24: {
                 'start_date': cls.sim_params.trading_days[0],
-                'end_date': cls.env.next_trading_day(
+                'end_date': default_nyse_schedule.next_execution_day(
                     cls.sim_params.trading_days[-1]
                 )
             },
             25: {
                 'start_date': cls.sim_params.trading_days[0],
-                'end_date': cls.env.next_trading_day(
+                'end_date': default_nyse_schedule.next_execution_day(
                     cls.sim_params.trading_days[-1]
                 )
             }
@@ -104,7 +105,7 @@ class BlotterTestCase(TestCase):
         equity_daily_reader = BcolzDailyBarReader(path)
 
         cls.data_portal = DataPortal(
-            cls.env,
+            cls.env, default_nyse_schedule,
             equity_daily_reader=equity_daily_reader,
         )
 

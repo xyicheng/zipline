@@ -18,11 +18,12 @@ from six import with_metaclass
 
 from .core import tmp_asset_finder, make_simple_equity_info, gen_calendars
 from ..finance.trading import TradingEnvironment
-from ..utils import tradingcalendar, factory
+from ..utils import factory
 from ..utils.final import FinalMeta, final
 from zipline.pipeline import Pipeline, SimplePipelineEngine
 from zipline.utils.numpy_utils import make_datetime64D
 from zipline.utils.numpy_utils import NaTD
+from zipline.utils.calendars import default_nyse_schedule
 
 
 class ZiplineTestCase(with_metaclass(FinalMeta, TestCase)):
@@ -256,7 +257,7 @@ class WithTradingEnvironment(WithAssetFinder):
     """
     TRADING_ENV_MIN_DATE = None
     TRADING_ENV_MAX_DATE = None
-    TRADING_ENV_TRADING_CALENDAR = tradingcalendar
+    TRADING_ENV_TRADING_SCHEDULE = default_nyse_schedule
 
     @classmethod
     def make_load_function(cls):
@@ -269,7 +270,7 @@ class WithTradingEnvironment(WithAssetFinder):
             asset_db_path=cls.asset_finder.engine,
             min_date=cls.TRADING_ENV_MIN_DATE,
             max_date=cls.TRADING_ENV_MAX_DATE,
-            env_trading_calendar=cls.TRADING_ENV_TRADING_CALENDAR,
+            trading_schedule=cls.TRADING_ENV_TRADING_SCHEDULE,
         )
 
     @classmethod
@@ -373,16 +374,17 @@ class WithBcolzMinutes(WithTempdir,
     """
 
     BCOLZ_MINUTES_PER_DAY = US_EQUITIES_MINUTES_PER_DAY
+    BCOLZ_TRADING_SCHEDULE = default_nyse_schedule
 
     @classmethod
     def init_class_fixtures(cls):
         super(WithBcolzMinutes, cls).init_class_fixtures()
 
         writer = BcolzMinuteBarWriter(
-            cls.env.first_trading_day,
+            cls.BCOLZ_TRADING_SCHEDULE.first_execution_day,
             cls.tempdir.path,
-            cls.env.open_and_closes.market_open,
-            cls.env.open_and_closes.market_close,
+            cls.BCOLZ_TRADING_SCHEDULE.schedule.market_open,
+            cls.BCOLZ_TRADING_SCHEDULE.schedule.market_close,
             cls.BCOLZ_MINUTES_PER_DAY,
         )
         for sid, data in iteritems(cls.make_bcolz_minute_bar_data()):
