@@ -1301,10 +1301,9 @@ class DataPortal(object):
 
     def _get_minute_window_for_equities(
             self, assets, field, minutes_for_window):
-        window = self._equity_minute_loader_arrays(field,
-                                                   minutes_for_window,
-                                                   assets)
-        return window
+        return self._equity_minute_history_loader.history(assets,
+                                                          minutes_for_window,
+                                                          field)
 
     def _apply_all_adjustments(self, data, asset, dts, field,
                                price_adj_factor=1.0):
@@ -1373,32 +1372,6 @@ class DataPortal(object):
                 data *= price_adj_factor
                 np.around(data, 3, out=data)
 
-    def _equity_daily_reader_arrays(self, field, dts, assets):
-        # Custom memoization, because of unhashable types.
-        assets_key = frozenset(assets)
-        key = (field, dts[0], dts[-1], assets_key)
-        try:
-            return self._equity_daily_history_array_cache[field][key]
-        except KeyError:
-            data = self._equity_history_loader.history(assets,
-                                                       dts,
-                                                       field)
-            self._equity_daily_history_array_cache[field][key] = data
-            return data
-
-    def _equity_minute_loader_arrays(self, field, dts, assets):
-        # Custom memoization, because of unhashable types.
-        assets_key = frozenset(assets)
-        key = (field, dts[0], dts[-1], assets_key)
-        try:
-            return self._equity_minute_loader_array_cache[field][key]
-        except KeyError:
-            data = self._equity_minute_history_loader.history(assets,
-                                                              dts,
-                                                              field)
-            self._equity_minute_loader_array_cache[field][key] = data
-            return data
-
     def _get_daily_window_for_sids(
             self, assets, field, days_in_window, extra_slot=True):
         """
@@ -1444,9 +1417,15 @@ class DataPortal(object):
             return_array[:] = np.NAN
 
         if bar_count != 0:
-            data = self._equity_daily_reader_arrays(field,
-                                                    days_in_window,
-                                                    assets)
+            assets_key = frozenset(assets)
+            key = (field, bar_count, days_in_window[-1], assets_key)
+            try:
+                data = self._equity_daily_history_array_cache[field][key]
+            except KeyError:
+                data = self._equity_history_loader.history(assets,
+                                                           days_in_window,
+                                                           field)
+                self._equity_daily_history_array_cache[field][key] = data
 
             if extra_slot:
                 return_array[:len(return_array) - 1, :] = data
