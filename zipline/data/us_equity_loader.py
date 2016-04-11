@@ -17,6 +17,7 @@ from abc import (
     abstractmethod,
     abstractproperty,
 )
+from cachetools import LRUCache
 from numpy import dtype, around
 from pandas.tslib import normalize_date
 
@@ -82,7 +83,7 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
         self.env = env
         self._reader = reader
         self._adjustments_reader = adjustment_reader
-        self._window_blocks = {}
+        self._window_blocks = LRUCache(maxsize=2)
 
     @abstractproperty
     def _prefetch_length(self):
