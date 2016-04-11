@@ -15,8 +15,8 @@
 from operator import mul
 
 import bcolz
+from cachetools import LRUCache
 from logbook import Logger
-
 import numpy as np
 import pandas as pd
 from pandas.tslib import normalize_date
@@ -508,25 +508,14 @@ class DataPortal(object):
         #
         # This is  optimized for algorithms that call history once per field
         # in handle_data or a scheduled function.
-        self._equity_daily_reader_array_keys = {
-            'open': None,
-            'high': None,
-            'low': None,
-            'close': None,
-            'volume': None,
-            'price': None
+        self._equity_daily_history_array_cache = {
+            'open': LRUCache(maxsize=2),
+            'high': LRUCache(maxsize=2),
+            'low': LRUCache(maxsize=2),
+            'close': LRUCache(maxsize=2),
+            'volume': LRUCache(maxsize=2),
+            'price': LRUCache(maxsize=2),
         }
-        self._equity_daily_reader_array_data = {}
-        # See above comment for `_equity_daily_reader_array_keys`.
-        self._equity_minute_loader_array_keys = {
-            'open': None,
-            'high': None,
-            'low': None,
-            'close': None,
-            'volume': None,
-            'price': None
-        }
-        self._equity_minute_loader_array_data = {}
 
     def _reindex_extra_source(self, df, source_date_index):
         return df.reindex(index=source_date_index, method='ffill')
@@ -1388,28 +1377,26 @@ class DataPortal(object):
         # Custom memoization, because of unhashable types.
         assets_key = frozenset(assets)
         key = (field, dts[0], dts[-1], assets_key)
-        if self._equity_daily_reader_array_keys[field] == key:
-            return self._equity_daily_reader_array_data[field]
-        else:
+        try:
+            return self._equity_daily_history_array_cache[field][key]
+        except KeyError:
             data = self._equity_history_loader.history(assets,
                                                        dts,
                                                        field)
-            self._equity_daily_reader_array_keys[field] = key
-            self._equity_daily_reader_array_data[field] = data
+            self._equity_daily_history_array_cache[field][key] = data
             return data
 
     def _equity_minute_loader_arrays(self, field, dts, assets):
         # Custom memoization, because of unhashable types.
         assets_key = frozenset(assets)
         key = (field, dts[0], dts[-1], assets_key)
-        if self._equity_minute_loader_array_keys[field] == key:
-            return self._equity_minute_loader_array_data[field]
-        else:
+        try:
+            return self._equity_minute_loader_array_cache[field][key]
+        except KeyError:
             data = self._equity_minute_history_loader.history(assets,
                                                               dts,
                                                               field)
-            self._equity_minute_loader_array_keys[field] = key
-            self._equity_minute_loader_array_data[field] = data
+            self._equity_minute_loader_array_cache[field][key] = data
             return data
 
     def _get_daily_window_for_sids(
