@@ -83,7 +83,7 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
         self.env = env
         self._reader = reader
         self._adjustments_reader = adjustment_reader
-        self._window_blocks = LRUCache(maxsize=2)
+        self._window_blocks = LRUCache(maxsize=12)
 
     @abstractproperty
     def _prefetch_length(self):
