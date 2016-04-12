@@ -38,8 +38,8 @@ date_intervals = [[None, '2014-01-04'], ['2014-01-05', '2014-01-09'],
 buyback_authorizations_cases = [
     pd.DataFrame({
         VALUE_FIELD_NAME: [1, 15],
-        VALUE_TYPE_FIELD_NAME: [0, 1], # 0 for cash, 1 for shares
-        BUYBACK_TYPE_FIELD_NAME: [0, 1], # 0 for new, 1 for additional
+        VALUE_TYPE_FIELD_NAME: [0, 1],  # 0 for cash, 1 for shares
+        BUYBACK_TYPE_FIELD_NAME: [0, 1],  # 0 for new, 1 for additional
         TS_FIELD_NAME: pd.to_datetime(['2014-01-05', '2014-01-10']),
         BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.to_datetime(['2014-01-04',
                                                          '2014-01-09'])
