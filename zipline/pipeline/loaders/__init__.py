@@ -1,8 +1,5 @@
 from .earnings import EarningsCalendarLoader
-from .buyback_auth import (
-    CashBuybackAuthorizationsLoader,
-    ShareBuybackAuthorizationsLoader
-)
+from .buyback_auth import BuybackAuthorizationsLoader
 from .dividends import (
     DividendsByAnnouncementDateLoader,
     DividendsByExDateLoader,
@@ -11,11 +8,10 @@ from .dividends import (
 from .equity_pricing_loader import USEquityPricingLoader
 
 __all__ = [
-    'CashBuybackAuthorizationsLoader',
+    'BuybackAuthorizationsLoader',
     'DividendsByAnnouncementDateLoader',
     'DividendsByExDateLoader',
     'DividendsByPayDateLoader',
     'EarningsCalendarLoader',
-    'ShareBuybackAuthorizationsLoader',
     'USEquityPricingLoader',
 ]

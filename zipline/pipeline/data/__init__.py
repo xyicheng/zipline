@@ -1,4 +1,4 @@
-from .buyback_auth import CashBuybackAuthorizations, ShareBuybackAuthorizations
+from .buyback_auth import BuybackAuthorizations
 from .dividends import (
     DividendsByAnnouncementDate,
     DividendsByExDate,
@@ -10,13 +10,12 @@ from .dataset import DataSet, Column, BoundColumn
 
 __all__ = [
     'BoundColumn',
-    'CashBuybackAuthorizations',
+    'BuybackAuthorizations',
     'Column',
     'DataSet',
     'DividendsByAnnouncementDate',
     'DividendsByExDate',
     'DividendsByPayDate',
     'EarningsCalendar',
-    'ShareBuybackAuthorizations',
     'USEquityPricing',
 ]

@@ -1,8 +1,5 @@
 
-from .buyback_auth import (
-    BlazeCashBuybackAuthorizationsLoader,
-    BlazeShareBuybackAuthorizationsLoader
-)
+from .buyback_auth import BlazeBuybackAuthorizationsLoader
 from .core import (
     BlazeLoader,
     NoDeltasWarning,
@@ -19,13 +16,12 @@ from .earnings import (
 )
 
 __all__ = (
-    'BlazeCashBuybackAuthorizationsLoader',
+    'BlazeBuybackAuthorizationsLoader',
     'BlazeDividendsByAnnouncementDateLoader',
     'BlazeDividendsByExDateLoader',
     'BlazeDividendsByPayDateLoader',
     'BlazeEarningsCalendarLoader',
     'BlazeLoader',
-    'BlazeShareBuybackAuthorizationsLoader',
     'from_blaze',
     'global_loader',
     'NoDeltasWarning',
