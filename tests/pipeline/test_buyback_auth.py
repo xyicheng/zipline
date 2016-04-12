@@ -81,7 +81,7 @@ class BuybackAuthLoaderTestCase(WithPipelineEventDataLoader, ZiplineTestCase):
         PREVIOUS_BUYBACK_TYPE:
             BuybackAuthorizations.previous_buyback_type.latest,
         DAYS_SINCE_PREV:
-            BusinessDaysSinceBuybackAuth(),
+            BusinessDaysSinceBuybackAuth(buyback_units=(0, 1)),
     }
 
     @classmethod
