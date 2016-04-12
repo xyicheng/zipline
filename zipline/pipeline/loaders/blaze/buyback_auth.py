@@ -4,7 +4,10 @@ from .core import (
 )
 from zipline.pipeline.common import (
     BUYBACK_ANNOUNCEMENT_FIELD_NAME,
-    VALUE_FIELD_NAME, VALUE_TYPE_FIELD_NAME, BUYBACK_TYPE_FIELD_NAME)
+    BUYBACK_TYPE_FIELD_NAME,
+    VALUE_FIELD_NAME,
+    VALUE_TYPE_FIELD_NAME,
+)
 from zipline.pipeline.data import BuybackAuthorizations
 from zipline.pipeline.loaders import BuybackAuthorizationsLoader
 from .events import BlazeEventsLoader
