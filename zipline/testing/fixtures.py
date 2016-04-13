@@ -514,7 +514,7 @@ class WithPipelineEventDataLoader(WithAssetFinder):
             start_date=dates[0],
             end_date=dates[-1],
         )
-        nose
+
         for sid in self.get_sids():
             for col_name in cols.keys():
                 assert_series_equal(result[col_name].xs(sid, level=1),
