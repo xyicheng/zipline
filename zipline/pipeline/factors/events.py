@@ -3,14 +3,12 @@ Factors describing information about event data (e.g. earnings
 announcements, acquisitions, dividends, etc.).
 """
 from numpy import newaxis
-import numpy
 from ..data import (
     BuybackAuthorizations,
     DividendsByAnnouncementDate,
     DividendsByExDate,
     EarningsCalendar
 )
-from zipline.pipeline.mixins import SingleInputMixin
 from zipline.utils.numpy_utils import (
     NaTD,
     busday_count_mask_NaT,
@@ -40,7 +38,7 @@ class BusinessDaysSincePreviousEvents(Factor):
     dtype = float64_dtype
 
     def _compute(self, arrays, dates, assets, mask):
-        from nose.tools import set_trace; set_trace()
+
         # Coerce from [ns] to [D] for numpy busday_count.
         announce_dates = arrays[0].astype(datetime64D_dtype)
 
@@ -132,7 +130,9 @@ class BusinessDaysSincePreviousEarnings(BusinessDaysSincePreviousEvents):
     inputs = [EarningsCalendar.previous_announcement]
 
 
-class BusinessDaysSinceBuybackAuth(Factor):
+class BusinessDaysSinceBuybackAuth(
+    BusinessDaysSincePreviousEvents
+):
     """
     Factor returning the number of **business days** (not trading days!) since
     the most recent cash buyback authorization for each asset.
@@ -141,26 +141,7 @@ class BusinessDaysSinceBuybackAuth(Factor):
     --------
     zipline.pipeline.factors.BusinessDaysSinceCashBuybackAuth
     """
-    inputs = [BuybackAuthorizations.previous_date,
-              BuybackAuthorizations.previous_value_type]
-    window_length = 0
-    dtype = float64_dtype
-    params = ('buyback_units',)
-
-    def _compute(self, arrays, dates, assets, mask):
-        arrays = numpy.array(
-            [[arrays[0][i] for i, val in enumerate(arrays[1])
-             if val[0] in self.params['buyback_units']]]
-        )
-        # Coerce from [ns] to [D] for numpy busday_count.
-        announce_dates = arrays[0].astype(datetime64D_dtype)
-
-        # Set masked values to NaT.
-        announce_dates[~mask] = NaTD
-
-        # Convert row labels into a column vector for broadcasted comparison.
-        reference_dates = dates.values.astype(datetime64D_dtype)[:, newaxis]
-        return busday_count_mask_NaT(announce_dates, reference_dates)
+    inputs = [BuybackAuthorizations.previous_date]
 
 
 class BusinessDaysSinceDividendAnnouncement(
