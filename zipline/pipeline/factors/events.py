@@ -40,7 +40,6 @@ class BusinessDaysSincePreviousEvents(Factor):
     dtype = float64_dtype
 
     def _compute(self, arrays, dates, assets, mask):
-        from nose.tools import set_trace; set_trace()
         # Coerce from [ns] to [D] for numpy busday_count.
         announce_dates = arrays[0].astype(datetime64D_dtype)
 
@@ -148,16 +147,17 @@ class BusinessDaysSinceBuybackAuth(Factor):
     params = ('buyback_units',)
 
     def _compute(self, arrays, dates, assets, mask):
-        arrays = numpy.array(
-            [[arrays[0][i] for i, val in enumerate(arrays[1])
-             if val[0] in self.params['buyback_units']]]
-        )
+        buyback_units = arrays[1]
+
         # Coerce from [ns] to [D] for numpy busday_count.
         announce_dates = arrays[0].astype(datetime64D_dtype)
-
-        # Set masked values to NaT.
-        announce_dates[~mask] = NaTD
-
+        desired_units = numpy.column_stack(
+            [numpy.in1d(buyback_units[:, 0], self.params['buyback_units']),
+             numpy.in1d(buyback_units[:, 1], self.params['buyback_units'])]
+        )
+        # Set all values that are missing or have units that aren't desired
+        # to NaT.
+        announce_dates[~(mask & desired_units)] = NaTD
         # Convert row labels into a column vector for broadcasted comparison.
         reference_dates = dates.values.astype(datetime64D_dtype)[:, newaxis]
         return busday_count_mask_NaT(announce_dates, reference_dates)
