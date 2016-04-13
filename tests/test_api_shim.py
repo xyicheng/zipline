@@ -17,6 +17,7 @@ from zipline.testing.core import write_minute_data_for_asset, \
     create_daily_df_for_asset, DailyBarWriterFromDataFrames, MockDailyBarReader
 from zipline.testing import str_to_seconds
 from zipline.zipline_warnings import ZiplineDeprecationWarning
+from zipline.utils.calendars import default_nyse_schedule
 
 simple_algo = """
 from zipline.api import sid, order
@@ -117,7 +118,7 @@ class TestAPIShim(TestCase):
         cls.env = TradingEnvironment()
         cls.tempdir = TempDirectory()
 
-        cls.trading_days = cls.env.days_in_range(
+        cls.trading_days = default_nyse_schedule.execution_days_in_range(
             start=pd.Timestamp("2016-01-05", tz='UTC'),
             end=pd.Timestamp("2016-01-28", tz='UTC')
         )
@@ -126,7 +127,9 @@ class TestAPIShim(TestCase):
         for sid in [1, 2, 3]:
             equities_data[sid] = {
                 "start_date": cls.trading_days[0],
-                "end_date": cls.env.next_trading_day(cls.trading_days[-1]),
+                "end_date": default_nyse_schedule.next_execution_day(
+                    cls.trading_days[-1]
+                ),
                 "symbol": "ASSET{0}".format(sid),
             }
 
@@ -136,9 +139,9 @@ class TestAPIShim(TestCase):
         cls.asset2 = cls.env.asset_finder.retrieve_asset(2)
         cls.asset3 = cls.env.asset_finder.retrieve_asset(3)
 
-        market_opens = cls.env.open_and_closes.market_open.loc[
+        market_opens = default_nyse_schedule.schedule.market_open.loc[
             cls.trading_days]
-        market_closes = cls.env.open_and_closes.market_close.loc[
+        market_closes = default_nyse_schedule.schedule.market_close.loc[
             cls.trading_days]
 
         minute_writer = BcolzMinuteBarWriter(
@@ -151,7 +154,7 @@ class TestAPIShim(TestCase):
 
         for sid in [1, 2, 3]:
             write_minute_data_for_asset(
-                cls.env, minute_writer, cls.trading_days[0],
+                default_nyse_schedule, minute_writer, cls.trading_days[0],
                 cls.trading_days[-1], sid
             )
 
@@ -161,7 +164,7 @@ class TestAPIShim(TestCase):
             period_start=cls.trading_days[0],
             period_end=cls.trading_days[-1],
             data_frequency="minute",
-            env=cls.env
+            trading_schedule=default_nyse_schedule,
         )
 
     @classmethod
@@ -169,11 +172,14 @@ class TestAPIShim(TestCase):
         path = cls.tempdir.getpath("testdaily.bcolz")
 
         dfs = {
-            1: create_daily_df_for_asset(cls.env, cls.trading_days[0],
+            1: create_daily_df_for_asset(default_nyse_schedule,
+                                         cls.trading_days[0],
                                          cls.trading_days[-1]),
-            2: create_daily_df_for_asset(cls.env, cls.trading_days[0],
+            2: create_daily_df_for_asset(default_nyse_schedule,
+                                         cls.trading_days[0],
                                          cls.trading_days[-1]),
-            3: create_daily_df_for_asset(cls.env, cls.trading_days[0],
+            3: create_daily_df_for_asset(default_nyse_schedule,
+                                         cls.trading_days[0],
                                          cls.trading_days[-1])
         }
 
@@ -188,7 +194,7 @@ class TestAPIShim(TestCase):
 
         adj_writer = SQLiteAdjustmentWriter(
             path,
-            cls.env.trading_days,
+            default_nyse_schedule.all_execution_days,
             MockDailyBarReader()
         )
 
@@ -224,6 +230,7 @@ class TestAPIShim(TestCase):
     def setUp(self):
         self.data_portal = DataPortal(
             self.env,
+            trading_schedule=default_nyse_schedule,
             equity_minute_reader=BcolzMinuteBarReader(self.tempdir.path),
             equity_daily_reader=self.build_daily_data(),
             adjustment_reader=self.adj_reader
@@ -249,10 +256,10 @@ class TestAPIShim(TestCase):
         similar)  and the new data API(data.current(sid(N), field) and
         similar) hit the same code paths on the DataPortal.
         """
-        test_start_minute = self.env.market_minutes_for_day(
+        test_start_minute = default_nyse_schedule.execution_minutes_for_day(
             self.trading_days[0]
         )[1]
-        test_end_minute = self.env.market_minutes_for_day(
+        test_end_minute = default_nyse_schedule.execution_minutes_for_day(
             self.trading_days[0]
         )[-1]
         bar_data = BarData(
@@ -330,7 +337,7 @@ class TestAPIShim(TestCase):
             period_start=test_start_minute,
             period_end=test_end_minute,
             data_frequency="minute",
-            env=self.env
+            trading_schedule=default_nyse_schedule,
         )
 
         history_algorithm = self.create_algo(
@@ -451,7 +458,7 @@ class TestAPIShim(TestCase):
                 capital_base=self.sim_params.capital_base,
                 data_frequency=self.sim_params.data_frequency,
                 emission_rate=self.sim_params.emission_rate,
-                env=self.env,
+                trading_schedule=default_nyse_schedule,
             )
 
             algo = self.create_algo(history_algo,
@@ -494,7 +501,7 @@ class TestAPIShim(TestCase):
                 period_start=self.trading_days[8],
                 period_end=self.trading_days[-1],
                 data_frequency="minute",
-                env=self.env
+                trading_schedule=default_nyse_schedule,
             )
 
             algo = self.create_algo(simple_transforms_algo,

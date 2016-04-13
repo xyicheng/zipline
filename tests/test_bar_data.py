@@ -188,7 +188,7 @@ class TestMinuteBarData(TestBarDataBase):
             )
 
         write_minute_data_for_asset(
-            cls.env,
+            cls.trading_schedule,
             writer,
             cls.days[0],
             cls.days[-1],
@@ -462,7 +462,7 @@ class TestMinuteBarData(TestBarDataBase):
     def test_can_trade_at_midnight(self):
         # make sure that if we use `can_trade` at midnight, we don't pretend
         # we're in the previous day's last minute
-        the_day_after = self.env.next_trading_day(self.days[-1])
+        the_day_after = self.trading_schedule.next_execution_day(self.days[-1])
 
         bar_data = BarData(self.data_portal, lambda: the_day_after, "minute")
 
@@ -580,7 +580,7 @@ class TestDailyBarData(TestBarDataBase):
 
         adj_writer = SQLiteAdjustmentWriter(
             path,
-            cls.env.trading_days,
+            cls.trading_schedule.all_execution_days,
             MockDailyBarReader()
         )
 
@@ -666,13 +666,15 @@ class TestDailyBarData(TestBarDataBase):
             4: create_daily_df_for_asset(
                 cls.trading_schedule, cls.days[0], cls.days[-1], interval=2
             ),
-            5: create_daily_df_for_asset(cls.env, cls.days[0], cls.days[-1]),
+            5: create_daily_df_for_asset(
+                cls.trading_schedule, cls.days[0], cls.days[-1]),
             6: create_daily_df_for_asset(
-                cls.env, cls.days[0], cls.days[-1], interval=2
+                cls.trading_schedule, cls.days[0], cls.days[-1], interval=2
             ),
-            7: create_daily_df_for_asset(cls.env, cls.days[0], cls.days[-1]),
+            7: create_daily_df_for_asset(
+                cls.trading_schedule, cls.days[0], cls.days[-1]),
             8: create_daily_df_for_asset(
-                cls.env, cls.days[0], cls.days[-1], interval=2
+                cls.trading_schedule, cls.days[0], cls.days[-1], interval=2
             ),
         }
 

@@ -1020,7 +1020,7 @@ class TestBeforeTradingStart(TestCase):
         cls.env = TradingEnvironment()
         cls.tempdir = TempDirectory()
 
-        cls.trading_days = cls.env.days_in_range(
+        cls.trading_days = default_nyse_schedule.execution_days_in_range(
             start=pd.Timestamp("2016-01-05", tz='UTC'),
             end=pd.Timestamp("2016-01-07", tz='UTC')
         )
@@ -1039,9 +1039,9 @@ class TestBeforeTradingStart(TestCase):
         cls.asset2 = cls.env.asset_finder.retrieve_asset(2)
         cls.SPLIT_ASSET = cls.env.asset_finder.retrieve_asset(3)
 
-        market_opens = cls.env.open_and_closes.market_open.loc[
+        market_opens = default_nyse_schedule.schedule.market_open.loc[
             cls.trading_days]
-        market_closes = cls.env.open_and_closes.market_close.loc[
+        market_closes = default_nyse_schedule.schedule.market_close.loc[
             cls.trading_days]
 
         minute_writer = BcolzMinuteBarWriter(
@@ -1054,13 +1054,15 @@ class TestBeforeTradingStart(TestCase):
 
         for sid in [1, 8554]:
             write_minute_data_for_asset(
-                cls.env, minute_writer, cls.trading_days[0],
+                default_nyse_schedule, minute_writer, cls.trading_days[0],
                 cls.trading_days[-1], sid
             )
 
         # Write data with split asset
-        asset_minutes = cls.env.minutes_for_days_in_range(
-            cls.trading_days[0], cls.trading_days[-1])
+        asset_minutes = \
+            default_nyse_schedule.execution_minutes_for_days_in_range(
+                cls.trading_days[0], cls.trading_days[-1]
+            )
         minutes_count = len(asset_minutes)
         minutes_arr = np.array(range(1, 1 + minutes_count))
 
@@ -1078,7 +1080,7 @@ class TestBeforeTradingStart(TestCase):
 
         # asset2 only trades every 50 minutes
         write_minute_data_for_asset(
-            cls.env, minute_writer, cls.trading_days[0],
+            default_nyse_schedule, minute_writer, cls.trading_days[0],
             cls.trading_days[-1], 2, 50
         )
 
@@ -1087,11 +1089,14 @@ class TestBeforeTradingStart(TestCase):
 
         cls.daily_path = cls.tempdir.getpath("testdaily.bcolz")
         dfs = {
-            1: create_daily_df_for_asset(cls.env, cls.trading_days[0],
+            1: create_daily_df_for_asset(default_nyse_schedule,
+                                         cls.trading_days[0],
                                          cls.trading_days[-1]),
-            2: create_daily_df_for_asset(cls.env, cls.trading_days[0],
+            2: create_daily_df_for_asset(default_nyse_schedule,
+                                         cls.trading_days[0],
                                          cls.trading_days[-1]),
-            3: create_daily_df_for_asset(cls.env, cls.trading_days[0],
+            3: create_daily_df_for_asset(default_nyse_schedule,
+                                         cls.trading_days[0],
                                          cls.trading_days[-1])
         }
         daily_writer = DailyBarWriterFromDataFrames(dfs)
@@ -1101,11 +1106,12 @@ class TestBeforeTradingStart(TestCase):
             period_start=cls.trading_days[1],
             period_end=cls.trading_days[-1],
             data_frequency="minute",
-            env=cls.env
+            trading_schedule=default_nyse_schedule,
         )
 
         cls.data_portal = DataPortal(
             env=cls.env,
+            trading_schedule=default_nyse_schedule,
             equity_daily_reader=BcolzDailyBarReader(cls.daily_path),
             equity_minute_reader=cls.minute_reader,
             adjustment_reader=cls.adj_reader
@@ -1117,7 +1123,7 @@ class TestBeforeTradingStart(TestCase):
 
         adj_writer = SQLiteAdjustmentWriter(
             path,
-            cls.env.trading_days,
+            default_nyse_schedule.all_execution_days,
             MockDailyBarReader()
         )
 
@@ -1773,6 +1779,7 @@ def handle_data(context, data):
         """
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             self.trades_by_sid
@@ -1784,7 +1791,7 @@ def handle_data(context, data):
             capital_base=self.sim_params.capital_base,
             data_frequency=self.sim_params.data_frequency,
             emission_rate=self.sim_params.emission_rate,
-            env=self.env,
+            trading_schedule=default_nyse_schedule,
         )
 
         test_algo = TradingAlgorithm(
@@ -1833,6 +1840,7 @@ def handle_data(context, data):
         """
         data_portal = create_data_portal_from_trade_history(
             self.env,
+            default_nyse_schedule,
             self.tempdir,
             self.sim_params,
             self.trades_by_sid
@@ -2622,7 +2630,7 @@ class TestOrderCancelation(TestCase):
         cls.env = TradingEnvironment()
         cls.tempdir = TempDirectory()
 
-        cls.days = cls.env.days_in_range(
+        cls.days = default_nyse_schedule.execution_days_in_range(
             start=pd.Timestamp("2016-01-05", tz='UTC'),
             end=pd.Timestamp("2016-01-07", tz='UTC')
         )
@@ -2636,7 +2644,7 @@ class TestOrderCancelation(TestCase):
         })
 
         cls.data_portal = DataPortal(
-            cls.env,
+            cls.env, default_nyse_schedule,
             equity_minute_reader=cls.build_minute_data(),
             equity_daily_reader=cls.build_daily_data()
         )
@@ -2672,8 +2680,9 @@ class TestOrderCancelation(TestCase):
 
     @classmethod
     def build_minute_data(cls):
-        market_opens = cls.env.open_and_closes.market_open.loc[cls.days]
-        market_closes = cls.env.open_and_closes.market_close.loc[cls.days]
+        market_opens = default_nyse_schedule.schedule.market_open.loc[cls.days]
+        market_closes = \
+            default_nyse_schedule.schedule.market_close.loc[cls.days]
 
         writer = BcolzMinuteBarWriter(
             cls.days[0],
@@ -2683,9 +2692,10 @@ class TestOrderCancelation(TestCase):
             US_EQUITIES_MINUTES_PER_DAY
         )
 
-        asset_minutes = cls.env.minutes_for_days_in_range(
-            cls.days[0], cls.days[-1]
-        )
+        asset_minutes = \
+            default_nyse_schedule.execution_minutes_for_days_in_range(
+                cls.days[0], cls.days[-1]
+            )
 
         minutes_count = len(asset_minutes)
         minutes_arr = np.array(range(1, 1 + minutes_count))
@@ -2732,7 +2742,7 @@ class TestOrderCancelation(TestCase):
             sim_params=SimulationParameters(
                 period_start=self.days[0],
                 period_end=self.days[-1],
-                env=self.env,
+                trading_schedule=default_nyse_schedule,
                 data_frequency=data_frequency
             )
         )
@@ -2898,6 +2908,7 @@ class TestEquityAutoClose(TestCase):
     """
     @classmethod
     def setUpClass(cls):
+        trading_days = default_nyse_schedule.all_execution_days
         start_date = pd.Timestamp('2015-01-05', tz='UTC')
         start_date_loc = trading_days.get_loc(start_date)
         test_duration = 7
@@ -2927,7 +2938,7 @@ class TestEquityAutoClose(TestCase):
             num_assets=3,
             start_date=self.test_days[0],
             first_end=self.first_asset_expiration,
-            frequency=trading_day,
+            frequency=default_nyse_schedule.day,
             periods_between_ends=2,
             auto_close_delta=auto_close_delta,
         )
@@ -3089,7 +3100,7 @@ class TestEquityAutoClose(TestCase):
         Make sure that after an equity gets delisted, our portfolio holds the
         correct number of equities and correct amount of cash.
         """
-        auto_close_delta = trading_day * auto_close_lag
+        auto_close_delta = default_nyse_schedule.day * auto_close_lag
         resources = self.make_data(auto_close_delta, 'daily', capital_base)
 
         assets = resources.assets
@@ -3249,7 +3260,7 @@ class TestEquityAutoClose(TestCase):
         canceled.  Unless an equity is auto closed, any open orders for that
         equity will persist indefinitely.
         """
-        auto_close_delta = trading_day
+        auto_close_delta = default_nyse_schedule.day
         resources = self.make_data(auto_close_delta, 'daily')
         env = resources.env
         assets = resources.assets
@@ -3321,7 +3332,7 @@ class TestEquityAutoClose(TestCase):
         )
 
     def test_minutely_delisted_equities(self):
-        resources = self.make_data(trading_day, 'minute')
+        resources = self.make_data(default_nyse_schedule.day, 'minute')
 
         env = resources.env
         assets = resources.assets

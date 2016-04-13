@@ -24,7 +24,6 @@ import pandas as pd
 from six import iteritems
 from six.moves import range, map
 
-from zipline.finance.trading import TradingEnvironment
 from zipline.testing import subtest
 import zipline.utils.events
 from zipline.utils.calendars import get_calendar
@@ -212,7 +211,7 @@ def minutes_for_days(ordered_days=False):
         # optimization in AfterOpen and BeforeClose, we rely on the fact that
         # the clock only ever moves forward in a simulation. For those cases,
         # we guarantee that the list of trading days we test is ordered.
-        ordered_day_list = random.sample(list(env.trading_days), 500)
+        ordered_day_list = random.sample(list(cal.all_trading_days), 500)
         ordered_day_list.sort()
 
         def day_picker(day):

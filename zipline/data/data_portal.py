@@ -501,6 +501,21 @@ class DataPortal(object):
             self._first_trading_day = \
                 self._equity_minute_reader.first_trading_day
 
+        # Get the first trading minute
+        if self._first_trading_day is not None:
+            self._first_trading_minute, _ = \
+                self.trading_schedule.start_and_end(self._first_trading_day)
+
+            # Store the locs of the first day and first minute
+            self._first_trading_day_loc = \
+                self.trading_schedule.all_execution_days.get_loc(
+                    self._first_trading_day
+                )
+            self._first_trading_minute_loc = \
+                self.trading_schedule.all_execution_minutes.get_loc(
+                    self._first_trading_minute
+                )
+
         # The `equity_daily_reader_array` lookups provide lru cache of 1 for
         # daily history reads from the daily_reader.
         # `last_remembered` or lru_cache can not be used, because the inputs
@@ -994,12 +1009,13 @@ class DataPortal(object):
         tds = self.trading_schedule.all_execution_days
         end_loc = tds.get_loc(end_date)
         start_loc = end_loc - bar_count + 1
-        start_dt = tds[start_loc]
-        if start_dt < self._first_trading_day:
+        if start_loc < self._first_trading_day_loc:
             raise HistoryWindowStartsBeforeData(
                 first_trading_day=self._first_trading_day.date(),
                 bar_count=bar_count,
-                suggested_start_day=tds[bar_count].date(),
+                suggested_start_day=tds[
+                    self._first_trading_day_loc + bar_count
+                ].date(),
             )
         return tds[start_loc:end_loc + 1]
 
@@ -1155,12 +1171,14 @@ class DataPortal(object):
         mm = self.trading_schedule.all_execution_minutes
         end_loc = mm.get_loc(end_dt)
         start_loc = end_loc - bar_count + 1
-        if start_loc < 0:
-            suggested_start_day = \
-                (mm[bar_count] + self.trading_schedule.day).date()
+        if start_loc < self._first_trading_minute_loc:
+            suggested_start_day = (
+                mm[
+                    self._first_trading_minute_loc + bar_count
+                ] + self.trading_schedule.day
+            ).date()
             raise HistoryWindowStartsBeforeData(
-                first_trading_day=\
-                    self.trading_schedule.first_execution_day.date(),
+                first_trading_day=self._first_trading_day.date(),
                 bar_count=bar_count,
                 suggested_start_day=suggested_start_day,
             )
@@ -1712,11 +1730,13 @@ class DataPortal(object):
             previous_day,
         )
 
-        minutes_count = \
-            sum(210 if day in self.env.early_closes else 390 for day in days)
+        minutes_count = sum(
+            210 if day in self.trading_schedule.early_ends
+            else 390 for day in days
+        )
 
         # add the minutes for today
-        today_open = self.env.get_open_and_close(ending_minute)[0]
+        today_open = self.trading_schedule.start_and_end(ending_minute)[0]
         minutes_count += \
             ((ending_minute - today_open).total_seconds() // 60) + 1
 

@@ -107,17 +107,21 @@ if __name__ == '__main__':
     from zipline.utils.factory import load_from_yahoo
 
     # Set the simulation start and end dates.
+    start_data = datetime(2013, 11, 1, 0, 0, 0, 0, pytz.utc)
     start = datetime(2014, 1, 1, 0, 0, 0, 0, pytz.utc)
     end = datetime(2014, 11, 1, 0, 0, 0, 0, pytz.utc)
 
     # Load price data from yahoo.
-    data = load_from_yahoo(stocks=['AAPL'], indexes={}, start=start,
+    data = load_from_yahoo(stocks=['AAPL'], indexes={}, start=start_data,
                            end=end)
 
     # Create and run the algorithm.
-    algo = TradingAlgorithm(initialize=initialize, handle_data=handle_data,
+    algo = TradingAlgorithm(initialize=initialize,
+                            handle_data=handle_data,
+                            start=start,
+                            end=end,
                             identifiers=['AAPL'])
-    results = algo.run(data).dropna()
+    results = algo.run(data, overwrite_sim_params=False).dropna()
 
     # Plot the portfolio and asset data.
     analyze(results=results)

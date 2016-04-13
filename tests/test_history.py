@@ -87,7 +87,7 @@ class HistoryTestCaseBase(TestCase):
         cls.TRADING_START_DT = pd.Timestamp("2014-02-03", tz='UTC')
         cls.TRADING_END_DT = pd.Timestamp("2016-01-29", tz='UTC')
 
-        cls.env = TradingEnvironment(min_date=cls.TRADING_START_DT)
+        cls.env = TradingEnvironment()
 
         cls.trading_days = default_nyse_schedule.execution_days_in_range(
             start=cls.TRADING_START_DT,
@@ -987,6 +987,7 @@ class MinuteEquityHistoryTestCase(HistoryTestCaseBase):
     def test_history_window_before_first_trading_day(self):
         # trading_start is 2/3/2014
         # get a history window that starts before that, and ends after that
+        self.data_portal._first_trading_day = self.TRADING_START_DT
         first_day_minutes = default_nyse_schedule.execution_minutes_for_day(
             self.TRADING_START_DT
         )
@@ -1558,8 +1559,8 @@ class DailyEquityHistoryTestCase(HistoryTestCaseBase):
             )[self.ASSET1]
 
         # Use a minute to force minute mode.
-        first_minute = default_nyse_schedule.open_and_closes.market_open[
-            self.TRADING_START_DT]
+        first_minute = \
+            default_nyse_schedule.schedule.market_open[self.TRADING_START_DT]
 
         with self.assertRaisesRegexp(HistoryWindowStartsBeforeData, exp_msg):
             self.data_portal.get_history_window(
