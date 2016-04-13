@@ -82,7 +82,7 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
         self.env = env
         self._reader = reader
         self._adjustments_reader = adjustment_reader
-        self._window_blocks = {}
+        self._sliding_windows = {}
 
     @abstractproperty
     def _prefetch_length(self):
@@ -194,7 +194,7 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
         one and replace the expired window.
 
         WARNING: A simulation with a high variance of assets, may cause
-        unbounded growth of floating windows stored in `_window_blocks`.
+        unbounded growth of floating windows stored in `_sliding_windows`.
         There should be some regular clean up of the cache, if stale windows
         prevent simulations from completing because of memory constraints.
 
@@ -218,7 +218,7 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
         size = len(dts)
         assets_key = frozenset(assets)
         try:
-            block_cache = self._window_blocks[(assets_key, field, size)]
+            block_cache = self._sliding_windows[(assets_key, field, size)]
             try:
                 return block_cache.unwrap(end)
             except Expired:
@@ -227,6 +227,16 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
             pass
 
         start = dts[0]
+
+        sliding_window, prefetch_end = self._prefetch_sliding_window(
+            field, assets, start, end, size)
+
+        self._sliding_windows[(assets_key, field, size)] = CachedObject(
+            sliding_window, prefetch_end)
+
+        return sliding_window
+
+    def _prefetch_sliding_window(self, field, assets, start, end, size):
 
         offset = 0
         start_ix = self._calendar.get_loc(start)
@@ -252,10 +262,7 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
             offset,
             size
         )
-        block = SlidingWindow(window, size, start_ix, offset)
-        self._window_blocks[(assets_key, field, size)] = CachedObject(
-            block, prefetch_end)
-        return block
+        return SlidingWindow(window, size, start_ix, offset), prefetch_end
 
     def history(self, assets, dts, field):
         """
