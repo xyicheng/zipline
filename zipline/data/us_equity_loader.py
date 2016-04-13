@@ -17,6 +17,8 @@ from abc import (
     abstractmethod,
     abstractproperty,
 )
+from functools import partial
+from types import MethodType
 from numpy import dtype, around
 from pandas.tslib import normalize_date
 
@@ -78,10 +80,15 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
     adjustment_reader : SQLiteAdjustmentReader
         Reader for adjustment data.
     """
+    FIELDS = ('open', 'high', 'low', 'close', 'volume')
+
     def __init__(self, env, reader, adjustment_reader):
         self.env = env
         self._reader = reader
         self._adjustments_reader = adjustment_reader
+        self._prefetch_sliding_window = {
+            field: partial(self.__prefetch_sliding_window, field)
+            for field in self.FIELDS}
         self._sliding_windows = {}
 
     @abstractproperty
@@ -228,15 +235,15 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
 
         start = dts[0]
 
-        sliding_window, prefetch_end = self._prefetch_sliding_window(
-            field, assets, start, end, size)
+        sliding_window, prefetch_end = self._prefetch_sliding_window[field](
+            assets, start, end, size)
 
         self._sliding_windows[(assets_key, field, size)] = CachedObject(
             sliding_window, prefetch_end)
 
         return sliding_window
 
-    def _prefetch_sliding_window(self, field, assets, start, end, size):
+    def __prefetch_sliding_window(self, field, assets, start, end, size):
 
         offset = 0
         start_ix = self._calendar.get_loc(start)
