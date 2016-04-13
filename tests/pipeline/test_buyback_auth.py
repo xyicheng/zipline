@@ -33,16 +33,18 @@ from zipline.testing.fixtures import (
 )
 
 date_intervals = [[None, '2014-01-04'], ['2014-01-05', '2014-01-09'],
-                  ['2014-01-10', None]]
+                  ['2014-01-10', '2014-01-12'], ['2014-01-13', None]]
 
 buyback_authorizations_cases = [
     pd.DataFrame({
-        VALUE_FIELD_NAME: [1, 15],
-        VALUE_TYPE_FIELD_NAME: [0, 1],  # 0 for cash, 1 for shares
-        BUYBACK_TYPE_FIELD_NAME: [0, 1],  # 0 for new, 1 for additional
-        TS_FIELD_NAME: pd.to_datetime(['2014-01-05', '2014-01-10']),
+        VALUE_FIELD_NAME: [1, 15, 25],
+        VALUE_TYPE_FIELD_NAME: [0, 1, 2],  # 0 for cash, 1 for shares
+        BUYBACK_TYPE_FIELD_NAME: [0, 1, 1],  # 0 for new, 1 for additional
+        TS_FIELD_NAME: pd.to_datetime(['2014-01-05', '2014-01-10',
+                                       '2014-01-13']),
         BUYBACK_ANNOUNCEMENT_FIELD_NAME: pd.to_datetime(['2014-01-04',
-                                                         '2014-01-09'])
+                                                         '2014-01-09',
+                                                         '2014-01-12'])
     }),
     pd.DataFrame(
         columns=[VALUE_FIELD_NAME,
@@ -90,6 +92,7 @@ class BuybackAuthLoaderTestCase(WithPipelineEventDataLoader, ZiplineTestCase):
 
     @classmethod
     def get_dataset(cls):
+        from nose.tools import set_trace; set_trace()
         return {sid: frame
                 for sid, frame
                 in enumerate(buyback_authorizations_cases)}
@@ -100,20 +103,21 @@ class BuybackAuthLoaderTestCase(WithPipelineEventDataLoader, ZiplineTestCase):
         cols = {}
         _expected_previous_value = get_expected_previous_values(
             zip_with_floats, dates,
-            ['NaN', 1, 15]
+            ['NaN', 1, 15, 25]
         )
         _expected_previous_buyback_announcement = get_expected_previous_values(
             zip_with_dates, dates,
-            ['NaT', '2014-01-04', '2014-01-09']
+            ['NaT', '2014-01-04', '2014-01-09', '2014-01-12']
         )
         _expected_previous_value_type = get_expected_previous_values(
             zip_with_floats, dates,
-            ['NaN', 0, 1]
+            ['NaN', 0, 1, 2]
         )
         _expected_previous_buyback_type = get_expected_previous_values(
             zip_with_floats, dates,
-            ['NaN', 0, 1]
+            ['NaN', 0, 1, 1]
         )
+        from nose.tools import set_trace; set_trace()
         cols[
             PREVIOUS_BUYBACK_ANNOUNCEMENT
         ] = _expected_previous_buyback_announcement
