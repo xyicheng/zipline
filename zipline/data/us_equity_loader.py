@@ -189,8 +189,7 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
                         adjs[end_loc] = [mult]
         return adjs
 
-    def _ensure_sliding_window(
-            self, assets, dts, field):
+    def _ensure_sliding_window(self, field, assets, dts):
         """
         Ensure that there is a Float64Multiply window that can provide data
         for the given parameters.
@@ -223,9 +222,8 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
         """
         end = dts[-1]
         size = len(dts)
-        assets_key = frozenset(assets)
         try:
-            block_cache = self._sliding_windows[(assets_key, field, size)]
+            block_cache = self._sliding_windows[(assets, field, size)]
             try:
                 return block_cache.unwrap(end)
             except Expired:
@@ -236,9 +234,9 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
         start = dts[0]
 
         sliding_window, prefetch_end = self._prefetch_sliding_window[field](
-            assets, start, end, size)
+            sorted(assets), start, end, size)
 
-        self._sliding_windows[(assets_key, field, size)] = CachedObject(
+        self._sliding_windows[(assets, field, size)] = CachedObject(
             sliding_window, prefetch_end)
 
         return sliding_window
@@ -292,7 +290,7 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
         -------
         out : np.ndarray with shape(len(days between start, end), len(assets))
         """
-        block = self._ensure_sliding_window(assets, dts, field)
+        block = self._ensure_sliding_window(field, frozenset(assets), dts)
         end_ix = self._calendar.get_loc(dts[-1])
         return block.get(end_ix)
 
