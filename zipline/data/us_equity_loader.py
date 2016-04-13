@@ -224,20 +224,19 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
         """
         end = dts[-1]
         size = len(dts)
+        key = (assets, size)
         try:
-            return self._window_caches[field].get((assets, size), end)
+            sliding_window = self._window_caches[field].get(key, end)
         except KeyError:
-            pass
+            start = dts[0]
 
-        start = dts[0]
+            sliding_window, prefetch_end = \
+                self._prefetch_sliding_window[field](
+                    sorted(assets), start, end, size)
 
-        sliding_window, prefetch_end = self._prefetch_sliding_window[field](
-            sorted(assets), start, end, size)
-
-        self._window_caches[field].set((assets, size),
-                                       sliding_window,
-                                       prefetch_end)
-
+            self._window_caches[field].set(key,
+                                           sliding_window,
+                                           prefetch_end)
         return sliding_window
 
     def __prefetch_sliding_window(self, field, assets, start, end, size):
