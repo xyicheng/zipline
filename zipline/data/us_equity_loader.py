@@ -18,16 +18,16 @@ from abc import (
     abstractproperty,
 )
 from functools import partial
-from types import MethodType
 from numpy import dtype, around
 from pandas.tslib import normalize_date
 
+from cachetools import LRUCache
 from six import iteritems, with_metaclass
 
 from zipline.pipeline.data.equity_pricing import USEquityPricing
 from zipline.lib._float64window import AdjustedArrayWindow as Float64Window
 from zipline.lib.adjustment import Float64Multiply
-from zipline.utils.cache import CachedObject, Expired
+from zipline.utils.cache import ExpiringCache
 from zipline.utils.memoize import lazyval
 
 
@@ -89,7 +89,9 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
         self._prefetch_sliding_window = {
             field: partial(self.__prefetch_sliding_window, field)
             for field in self.FIELDS}
-        self._sliding_windows = {}
+        self._window_caches = {
+            field: ExpiringCache(LRUCache(maxsize=2))
+            for field in self.FIELDS}
 
     @abstractproperty
     def _prefetch_length(self):
@@ -223,11 +225,7 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
         end = dts[-1]
         size = len(dts)
         try:
-            block_cache = self._sliding_windows[(assets, field, size)]
-            try:
-                return block_cache.unwrap(end)
-            except Expired:
-                pass
+            return self._window_caches[field].get((assets, size), end)
         except KeyError:
             pass
 
@@ -236,8 +234,9 @@ class USEquityHistoryLoader(with_metaclass(ABCMeta)):
         sliding_window, prefetch_end = self._prefetch_sliding_window[field](
             sorted(assets), start, end, size)
 
-        self._sliding_windows[(assets, field, size)] = CachedObject(
-            sliding_window, prefetch_end)
+        self._window_caches[field].set((assets, size),
+                                       sliding_window,
+                                       prefetch_end)
 
         return sliding_window
 

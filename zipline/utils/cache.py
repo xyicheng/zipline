@@ -57,3 +57,22 @@ class CachedObject(namedtuple("_CachedObject", "value expires")):
         if dt > self.expires:
             raise Expired(self.expires)
         return self.value
+
+
+class ExpiringCache(object):
+
+    def __init__(self, cache=None):
+        if cache is not None:
+            self._cache = cache
+        else:
+            self._cache = {}
+
+    def get(self, key, ref_date):
+        try:
+            return self._cache[key].unwrap(ref_date)
+        except Expired:
+            del self._cache[key]
+            raise KeyError(key)
+
+    def set(self, key, value, ref_date):
+        self._cache[key] = CachedObject(value, ref_date)
