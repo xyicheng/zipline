@@ -1115,7 +1115,9 @@ class DataPortal(object):
 
     @remember_last
     def _get_market_minutes_for_day(self, end_date):
-        return self.trading_schedule.execution_minutes_for_day(pd.Timestamp(end_date))
+        return self.trading_schedule.execution_minutes_for_day(
+            pd.Timestamp(end_date)
+        )
 
     def _get_history_daily_window_equities(
             self, assets, days_for_window, end_dt, field_to_use):

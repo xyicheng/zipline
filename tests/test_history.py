@@ -573,7 +573,9 @@ class MinuteEquityHistoryTestCase(HistoryTestCaseBase):
         # since asset2 and asset3 both started trading on 1/5/2015, let's do
         # some history windows that are completely before that
         minutes = default_nyse_schedule.execution_minutes_for_day(
-            default_nyse_schedule.previous_execution_day(pd.Timestamp("2015-01-05", tz='UTC'))
+            default_nyse_schedule.previous_execution_day(pd.Timestamp(
+                "2015-01-05", tz='UTC'
+            ))
         )[0:60]
 
         for idx, minute in enumerate(minutes):
@@ -959,9 +961,9 @@ class MinuteEquityHistoryTestCase(HistoryTestCaseBase):
 
         asset1_minutes = \
             default_nyse_schedule.execution_minutes_for_days_in_range(
-            start=self.ASSET1.start_date,
-            end=self.ASSET1.end_date
-        )
+                start=self.ASSET1.start_date,
+                end=self.ASSET1.end_date
+            )
 
         asset1_idx = asset1_minutes.searchsorted(
             default_nyse_schedule.start_and_end(day)[0]
@@ -1089,7 +1091,8 @@ class DailyEquityHistoryTestCase(HistoryTestCaseBase):
     @classmethod
     def create_df_for_asset(cls, start_day, end_day, interval=1,
                             force_zeroes=False):
-        days = default_nyse_schedule.execution_days_in_range(start_day, end_day)
+        days = default_nyse_schedule.execution_days_in_range(start_day,
+                                                             end_day)
         days_count = len(days)
 
         # default to 2 because the low array subtracts 1, and we don't
@@ -1533,7 +1536,9 @@ class DailyEquityHistoryTestCase(HistoryTestCaseBase):
         # trading_start is 2/3/2014
         # get a history window that starts before that, and ends after that
 
-        second_day = default_nyse_schedule.next_execution_day(self.TRADING_START_DT)
+        second_day = default_nyse_schedule.next_execution_day(
+            self.TRADING_START_DT
+        )
 
         exp_msg = (
             "History window extends before 2014-02-03. To use this history "

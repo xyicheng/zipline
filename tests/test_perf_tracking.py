@@ -1026,9 +1026,11 @@ class TestDividendPerformance(unittest.TestCase):
 
         dbpath = self.tempdir.getpath('adjustments.sqlite')
 
-        writer = SQLiteAdjustmentWriter(dbpath,
-                                        default_nyse_schedule.all_execution_days,
-                                        MockDailyBarSpotReader())
+        writer = SQLiteAdjustmentWriter(
+            dbpath,
+            default_nyse_schedule.all_execution_days,
+            MockDailyBarSpotReader(),
+        )
         splits = mergers = create_empty_splits_mergers_frame()
         dividends = pd.DataFrame({
             'sid': np.array([1], dtype=np.uint32),
