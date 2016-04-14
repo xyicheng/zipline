@@ -89,6 +89,59 @@ class classlazyval(lazyval):
         return super(classlazyval, self).__get__(owner, owner)
 
 
+class WeakLRUCache(object):
+
+    def __init__(self, maxsize=None, missing=None):
+        self.maxsize = maxsize
+        if self.maxsize is None:
+            # cache without ordering or size limit
+            self._cache = _WeakArgsDict()
+        else:
+            # ordered least recent to most recent
+            self._cache = _WeakArgsOrderedDict()
+            self._cache_renew = self._cache.move_to_end
+            self._cache_popitime = self._cache.popitem
+
+        self._hits, self._misses = [0], [0]
+
+        self.missing = None
+
+    def __getitem__(self, key):
+        if self._maxsize is None:
+            try:
+                result = self._cache[key]
+                self._hits[0] += 1
+                return result
+            except KeyError:
+                self._misses[0] += 1
+                if self._missing is not None:
+                    result = self._missing(*key)
+                    self._cache[key] = result
+                else:
+                    raise KeyError(key)
+        else:
+            try:
+                result = self._cache[key]
+                self._cache_renew(key)    # record recent use of this key
+                self._hits[0] += 1
+                return result
+            except KeyError:
+                self._misses[0] += 1
+                if self._missing is not None:
+                    result = self._missing(*key)
+                    self._cache[key] = result
+                else:
+                    raise KeyError(key)
+
+    def __setitem__(self, key, value):
+        if self._maxsize is None:
+            self._cache[key] = value
+        else:
+            if len(self._cache) > self._maxsize:
+                # purge least recently used cache entry
+                self._cache_popitem(False)
+
+
 def _weak_lru_cache(maxsize=100):
     """
     Users should only access the lru_cache through its public API:
