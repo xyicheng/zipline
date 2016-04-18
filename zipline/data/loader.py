@@ -31,10 +31,7 @@ from .paths import (
     data_root,
 )
 
-from zipline.utils.tradingcalendar import (
-    trading_day as trading_day_nyse,
-    trading_days as trading_days_nyse,
-)
+from zipline.utils.calendars import get_calendar
 
 logger = logbook.Logger('Loader')
 
@@ -49,6 +46,10 @@ INDEX_MAPPING = {
 }
 
 ONE_HOUR = pd.Timedelta(hours=1)
+
+nyse_cal = get_calendar('NYSE')
+trading_day_nyse = nyse_cal.day
+trading_days_nyse = nyse_cal.all_trading_days
 
 
 def last_modified_time(path):

@@ -63,10 +63,6 @@ from zipline.testing import (
 )
 from zipline.testing.core import DailyBarWriterFromDataFrames, \
     create_empty_splits_mergers_frame, FakeDataPortal
-from zipline.utils.tradingcalendar import (
-    trading_day,
-    trading_days,
-)
 from zipline.utils.calendars import default_nyse_schedule
 
 
@@ -75,6 +71,9 @@ TEST_RESOURCE_PATH = join(
     'resources',
     'pipeline_inputs',
 )
+
+trading_day = default_nyse_schedule.day
+trading_days = default_nyse_schedule.all_execution_days
 
 
 def rolling_vwap(df, length):
