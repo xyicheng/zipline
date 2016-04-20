@@ -1,4 +1,4 @@
-from six import StringIO, iteritems
+from six import StringIO, iteritems, with_metaclass
 from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 import hashlib
@@ -138,8 +138,7 @@ def mask_requests_args(url, validating=False, params_checker=None, **kwargs):
     return request_pair(requests_kwargs, url)
 
 
-class PandasCSV(object):
-    __metaclass__ = ABCMeta
+class PandasCSV(with_metaclass(ABCMeta)):
 
     def __init__(self,
                  pre_func,
