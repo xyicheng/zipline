@@ -49,7 +49,11 @@ from zipline.errors import (
     UnsupportedDatetimeFormat,
     UnsupportedOrderParameters,
     UnsupportedSlippageModel,
-    CannotOrderDelistedAsset, UnsupportedCancelPolicy, SetCancelPolicyPostInit)
+    CannotOrderDelistedAsset,
+    UnsupportedCancelPolicy,
+    SetCancelPolicyPostInit,
+    ScheduleFunctionWithoutCalendar,
+)
 from zipline.finance.trading import TradingEnvironment
 from zipline.finance.blotter import Blotter
 from zipline.finance.commission import PerShare, PerTrade, PerDollar
@@ -88,7 +92,10 @@ from zipline.utils.api_support import (
 )
 from zipline.utils.input_validation import ensure_upper_case
 from zipline.utils.cache import CachedObject, Expired
-from zipline.utils.calendars import default_nyse_schedule
+from zipline.utils.calendars import (
+    default_nyse_schedule,
+    ExchangeTradingSchedule,
+)
 import zipline.utils.events
 from zipline.utils.events import (
     EventManager,
@@ -752,8 +759,18 @@ class TradingAlgorithm(object):
                      # If we are in daily mode the time_rule is ignored.
                      zipline.utils.events.Always())
 
+        # Check the type of the algorithm's schedule before pulling calendar
+        # Note that the ExchangeTradingSchedule is currently the only
+        # TradingSchedule class, so this is unlikely to be hit
+        # TODO The calendar should be a required arg for schedule_function
+        if not isinstance(self.trading_schedule, ExchangeTradingSchedule):
+            raise ScheduleFunctionWithoutCalendar(
+                schedule=self.trading_schedule
+            )
+        cal = self.trading_schedule._exchange_calendar
+
         self.add_event(
-            make_eventrule(date_rule, time_rule, half_days),
+            make_eventrule(date_rule, time_rule, cal, half_days),
             func,
         )
 
