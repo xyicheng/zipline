@@ -12,7 +12,40 @@ Development
 Highlights
 ~~~~~~~~~~
 
-None
+* We have rewritten a lot of Zipline and its basic concepts in order to
+improve runtime performance.  At the same time, we've introduced
+several new APIs.
+
+At a high level, earlier versions of Zipline simulations pulled from a
+multiplexed stream of data sources, which were merged via heapq.  This
+stream was fed to the main simulation loop, driving the clock forward.  This
+strong dependency on reading all the data made it difficult to optimize
+simulation performance because there was no connection between the amount of
+data we fetched and the amount of data actually used by the algorithm.
+
+Now, we only fetch data when the algorithm needs it.  A new class,
+`zipline.data.data_portal.DataPortal`, dispatches data requests to various
+data sources and returns the requested values.  This makes the runtime of a
+simulation scale much more closely with the complexity of the algorithm, rather
+than with the number of assets provided by the data sources.
+
+Instead of the data stream driving the clock, now simulations iterate through
+a pre-calculated set of day or minute timestamps.  The timestamps are emitted
+by `MinuteSimulationClock` and `DailySimulationClock`, and consumed by the
+main loop in `AlgorithmSimulator.transform`.
+
+We've retired the `data[sid(N)]` and `history` APIs, replacing them with
+several methods on the `BarData` object: `data.current`, `data.history`,
+`data.can_trade`, and `data.is_stale`.  Old APIs will continue to work for
+now, but will issue deprecation warnings.
+
+You can now pass in an adjustments source to the DataPortal, and we will
+apply adjustments to the pricing data when looking backwards at data. Prices
+and volumes for execution and presented to the algorithm in data.current are
+the as-traded value of the asset.
+
+Fetcher has been moved from Quantopian internal code into Zipline.
+
 
 Enhancements
 ~~~~~~~~~~~~
