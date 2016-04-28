@@ -199,7 +199,11 @@ def _gen_multiplicative_adjustment_cases(dtype):
     )
 
 
-def _gen_overwrite_adjustment_cases(make_input, make_expected_output, dtype):
+def _gen_overwrite_adjustment_cases(name,
+                                    make_input,
+                                    make_expected_output,
+                                    dtype,
+                                    missing_value):
     """
     Generate test cases for overwrite adjustments.
 
@@ -292,14 +296,18 @@ def _gen_overwrite_adjustment_cases(make_input, make_expected_output, dtype):
 
     return _gen_expectations(
         baseline,
-        default_missing_value_for_dtype(dtype),
+        missing_value,
         adjustments,
         buffer_as_of,
-        nrows,
+        nrows=6,
     )
 
 
-def _gen_expectations(baseline, missing_value, adjustments, buffer_as_of, nrows):
+def _gen_expectations(baseline,
+                      missing_value,
+                      adjustments,
+                      buffer_as_of,
+                      nrows):
 
     for windowlen in valid_window_lengths(nrows):
 
@@ -418,14 +426,58 @@ class AdjustedArrayTestCase(TestCase):
     @parameterized.expand(
         chain(
             _gen_overwrite_adjustment_cases(
+                'float',
                 make_input=as_dtype(float64_dtype),
                 make_expected_output=as_dtype(float64_dtype),
                 dtype=float64_dtype,
+                missing_value=default_missing_value_for_dtype(float64_dtype),
             ),
             _gen_overwrite_adjustment_cases(
+                'datetime',
                 make_input=as_dtype(datetime64ns_dtype),
                 make_expected_output=as_dtype(datetime64ns_dtype),
                 dtype=datetime64ns_dtype,
+                missing_value=default_missing_value_for_dtype(
+                    datetime64ns_dtype,
+                ),
+            ),
+            _gen_unadjusted_cases(
+                'bytes_ndarray',
+                make_input=as_dtype(bytes_dtype),
+                make_expected_output=as_labelarray(bytes_dtype, b''),
+                missing_value=b'',
+            ),
+            _gen_unadjusted_cases(
+                'unicode_ndarray',
+                make_input=as_dtype(unicode_dtype),
+                make_expected_output=as_labelarray(unicode_dtype, u''),
+                missing_value=u'',
+            ),
+            _gen_unadjusted_cases(
+                'object_ndarray',
+                make_input=lambda a: a.astype(str).astype(object),
+                make_expected_output=as_labelarray(bytes_dtype, b''),
+                missing_value=b'',
+            ),
+            _gen_unadjusted_cases(
+                'bytes_labelarray',
+                make_input=as_labelarray(bytes_dtype, b''),
+                make_expected_output=as_labelarray(bytes_dtype, b''),
+                missing_value=b'',
+            ),
+            _gen_unadjusted_cases(
+                'unicode_labelarray',
+                make_input=as_labelarray(unicode_dtype, u''),
+                make_expected_output=as_labelarray(bytes_dtype, u''),
+                missing_value=u'',
+            ),
+            _gen_unadjusted_cases(
+                'object_labelarray',
+                make_input=(
+                    lambda a: LabelArray(a.astype(str).astype(object), b'')
+                ),
+                make_expected_output=as_labelarray(bytes_dtype, b''),
+                missing_value=b'',
             ),
         )
     )
@@ -440,7 +492,6 @@ class AdjustedArrayTestCase(TestCase):
         for _ in range(2):  # Iterate 2x ensure adjusted_arrays are re-usable.
             window_iter = array.traverse(lookback)
             for yielded, expected_yield in zip_longest(window_iter, expected):
-                self.assertEqual(yielded.dtype, data.dtype)
                 check_arrays(yielded, expected_yield)
 
     @parameter_space(

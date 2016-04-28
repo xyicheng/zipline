@@ -81,11 +81,11 @@ class ClassifierTestCase(BasePipelineTestCase):
     @parameter_space(
         __fail_fast=True,
         compval=['a', 'ab', 'not in the array'],
-        category_dtype=(bytes_dtype, categorical_dtype, unicode_dtype),
+        labelarray_dtype=(bytes_dtype, categorical_dtype, unicode_dtype),
     )
-    def test_string_eq(self, compval, category_dtype):
+    def test_string_eq(self, compval, labelarray_dtype):
 
-        compval = category_dtype.type(compval)
+        compval = labelarray_dtype.type(compval)
 
         class C(Classifier):
             dtype = categorical_dtype
@@ -103,7 +103,7 @@ class ClassifierTestCase(BasePipelineTestCase):
                  ['z',  'ab',   'a', 'ab'],
                  ['aa', 'ab',    '', 'ab'],
                  ['aa',  'a',  'ba', 'ba']],
-                dtype=category_dtype.type,
+                dtype=labelarray_dtype,
             ),
             missing_value='',
         )
@@ -178,11 +178,11 @@ class ClassifierTestCase(BasePipelineTestCase):
         __fail_fast=True,
         compval=['a', 'ab', '', 'not in the array'],
         missing=['a', 'ab', '', 'not in the array'],
-        category_dtype=(bytes_dtype, unicode_dtype, categorical_dtype),
+        labelarray_dtype=(bytes_dtype, unicode_dtype, categorical_dtype),
     )
-    def test_string_not_equal(self, compval, missing, category_dtype):
+    def test_string_not_equal(self, compval, missing, labelarray_dtype):
 
-        compval = category_dtype.type(compval)
+        compval = labelarray_dtype.type(compval)
 
         class C(Classifier):
             dtype = categorical_dtype
@@ -200,7 +200,7 @@ class ClassifierTestCase(BasePipelineTestCase):
                  ['z',  'ab',   'a', 'ab'],
                  ['aa', 'ab',    '', 'ab'],
                  ['aa',  'a',  'ba', 'ba']],
-                dtype=category_dtype,
+                dtype=labelarray_dtype,
             ),
             missing_value=missing,
         )
@@ -225,18 +225,18 @@ class ClassifierTestCase(BasePipelineTestCase):
         __fail_fast=True,
         compval=['a', 'b', 'ab', 'not in the array'],
         missing=['a', 'ab', '', 'not in the array'],
-        category_dtype=(categorical_dtype, bytes_dtype, unicode_dtype),
+        labelarray_dtype=(categorical_dtype, bytes_dtype, unicode_dtype),
     )
     def test_string_elementwise_predicates(self,
                                            compval,
                                            missing,
-                                           category_dtype):
+                                           labelarray_dtype):
 
-        missing = category_dtype.type(missing)
-        compval = category_dtype.type(compval)
+        missing = labelarray_dtype.type(missing)
+        compval = labelarray_dtype.type(compval)
 
         class C(Classifier):
-            dtype = category_dtype
+            dtype = categorical_dtype
             missing_value = missing
             inputs = ()
             window_length = 0
@@ -251,7 +251,7 @@ class ClassifierTestCase(BasePipelineTestCase):
                  ['z',  'ab',   'a', 'ab'],
                  ['aa', 'ab',    '', 'ab'],
                  ['aa',  'a',  'ba', 'ba']],
-                dtype=category_dtype,
+                dtype=labelarray_dtype,
             ),
             missing_value=missing,
         )
