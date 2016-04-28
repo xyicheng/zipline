@@ -1237,3 +1237,6 @@ class ParameterizedFactorTestCase(WithTradingEnvironment, ZiplineTestCase):
 
         expected_5 = rolling_mean((self.raw_data ** 2) * 2, window=5)[5:]
         assert_frame_equal(results['dv5'].unstack(), expected_5)
+
+
+# class StringPipelineTestCase

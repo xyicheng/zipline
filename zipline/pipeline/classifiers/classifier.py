@@ -2,15 +2,20 @@
 classifier.py
 """
 from numbers import Number
+import operator
 
 from numpy import where, isnan, nan, zeros
 
+from zipline.lib.labelarray import LabelArray
 from zipline.lib.quantiles import quantiles
-from zipline.pipeline.term import ComputableTerm
+from zipline.pipeline.term import ComputableTerm, NotSpecified
 from zipline.utils.input_validation import expect_types
-from zipline.utils.numpy_utils import int64_dtype
+from zipline.utils.numpy_utils import (
+    categorical_dtype,
+    int64_dtype,
+)
 
-from ..filters import NullFilter, NumExprFilter
+from ..filters import Filter, NullFilter, NumExprFilter
 from ..mixins import (
     CustomTermMixin,
     LatestMixin,
@@ -30,7 +35,9 @@ class Classifier(RestrictedDTypeMixin, ComputableTerm):
     indicating that means/standard deviations should be computed on assets for
     which the classifier produced the same label.
     """
-    ALLOWED_DTYPES = (int64_dtype,)  # Used by RestrictedDTypeMixin
+    # Used by RestrictedDTypeMixin
+    ALLOWED_DTYPES = (int64_dtype, categorical_dtype)
+    categories = NotSpecified
 
     def isnull(self):
         """
@@ -45,9 +52,8 @@ class Classifier(RestrictedDTypeMixin, ComputableTerm):
         return ~self.isnull()
 
     # We explicitly don't support classifier to classifier comparisons, since
-    # the numbers likely don't mean the same thing. This may be relaxed in the
-    # future, but for now we're starting conservatively.
-    @expect_types(other=Number)
+    # the stored values likely don't mean the same thing. This may be relaxed
+    # in the future, but for now we're starting conservatively.
     def eq(self, other):
         """
         Construct a Filter returning True for asset/date pairs where the output
@@ -58,7 +64,7 @@ class Classifier(RestrictedDTypeMixin, ComputableTerm):
         # certainly not what the user wants.
         if other == self.missing_value:
             raise ValueError(
-                "Comparison against self.missing_value ({value}) in"
+                "Comparison against self.missing_value ({value!r}) in"
                 " {typename}.eq().\n"
                 "Missing values have NaN semantics, so the "
                 "requested comparison would always produce False.\n"
@@ -67,24 +73,51 @@ class Classifier(RestrictedDTypeMixin, ComputableTerm):
                     typename=(type(self).__name__),
                 )
             )
-        return NumExprFilter.create(
-            "x_0 == {other}".format(other=int(other)),
-            binds=(self,),
-        )
 
-    @expect_types(other=Number)
+        if isinstance(other, Number) != (self.dtype == int64_dtype):
+            raise InvalidClassifierComparison(self, other)
+
+        if isinstance(other, Number):
+            return NumExprFilter.create(
+                "x_0 == {other}".format(other=int(other)),
+                binds=(self,),
+            )
+        else:
+            return ScalarStringCompare(
+                classifier=self,
+                op=operator.eq,
+                compval=other,
+            )
+
     def __ne__(self, other):
         """
         Construct a Filter returning True for asset/date pairs where the output
         of ``self`` matches ``other.
         """
-        return NumExprFilter.create(
-            "((x_0 != {other}) & (x_0 != {missing}))".format(
-                other=int(other),
-                missing=self.missing_value,
-            ),
-            binds=(self,),
-        )
+        if isinstance(other, Number) != (self.dtype == int64_dtype):
+            raise InvalidClassifierComparison(self, other)
+
+        if isinstance(other, Number):
+            return NumExprFilter.create(
+                "((x_0 != {other}) & (x_0 != {missing}))".format(
+                    other=int(other),
+                    missing=self.missing_value,
+                ),
+                binds=(self,),
+            )
+        else:
+            return ScalarStringCompare(
+                classifier=self,
+                op=operator.ne,
+                compval=other,
+            )
+
+    def postprocess(self, data):
+        if self.dtype == int64_dtype:
+            return data
+        if not isinstance(data, LabelArray):
+            raise AssertionError("Expected a LabelArray, got %s." % type(data))
+        return data.as_categorical()
 
 
 class Everything(Classifier):
@@ -127,6 +160,51 @@ class Quantiles(SingleInputMixin, Classifier):
         return type(self).__name__ + '(%d)' % self.params['bins']
 
 
+class ScalarStringCompare(SingleInputMixin, Filter):
+    """
+    A filter that compares string equality between an array of labels and a
+    single string value.
+
+    This exists because we represent string arrays with
+    ``zipline.lib.LabelArray``s, which numexpr doesn't know about, so we can't
+    use the generic NumExprFilter implementation here.
+    """
+    window_length = 0
+
+    @expect_types(classifier=Classifier, compval=str)
+    def __new__(cls, classifier, op, compval):
+        return super(ScalarStringCompare, cls).__new__(
+            ScalarStringCompare,
+            compval=compval,
+            op=op,
+            inputs=(classifier,),
+            mask=classifier.mask,
+        )
+
+    def _init(self, op, compval, *args, **kwargs):
+        self._op = op
+        self._compval = compval
+        return super(ScalarStringCompare, self)._init(*args, **kwargs)
+
+    @classmethod
+    def static_identity(cls, op, compval, *args, **kwargs):
+        return (
+            super(ScalarStringCompare, cls).static_identity(*args, **kwargs),
+            op,
+            compval,
+        )
+
+    def _compute(self, arrays, dates, assets, mask):
+        data = arrays[0]
+        op = self._op
+
+        result = self._op(data, self._compval)
+        # Enforce NaN semantics for the input's missing_value.
+        if self._op is operator.ne:
+            result &= op(data, self.inputs[0].missing_value)
+        return result & mask
+
+
 class CustomClassifier(PositiveWindowLengthMixin, CustomTermMixin, Classifier):
     """
     Base class for user-defined Classifiers.
@@ -149,3 +227,27 @@ class Latest(LatestMixin, CustomClassifier):
     zipline.pipeline.factors.factor.Latest
     zipline.pipeline.filters.filter.Latest
     """
+    def _allocate_output(self, windows, shape):
+        """
+        Override the default array allocation to produce a LabelArray when we
+        have a string-like dtype.
+        """
+        if self.dtype == int64_dtype:
+            return super(Latest, self)._allocate_output(windows, shape)
+
+        # This is a little bit of a hack.  We might not know what the
+        # categories for a LabelArray are until it's actually been loaded, so
+        # we need to look at the underlying data.
+        return windows[0].data.empty_like(shape)
+
+
+class InvalidClassifierComparison(TypeError):
+    def __init__(self, classifier, compval):
+        super(InvalidClassifierComparison, self).__init__(
+            "Can't compare classifier of dtype"
+            " {dtype} to value {value} of type {type}.".format(
+                dtype=classifier.dtype,
+                value=compval,
+                type=type(compval).__name__,
+            )
+        )

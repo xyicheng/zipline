@@ -55,6 +55,6 @@ class LatestTestCase(TestCase):
             dates_to_test[-1],
         )
         for column in columns:
-            float_result = result[column.name].unstack()
-            expected_float_result = self.expected_latest(column, cal_slice)
-            assert_frame_equal(float_result, expected_float_result)
+            col_result = result[column.name].unstack()
+            expected_col_result = self.expected_latest(column, cal_slice)
+            assert_frame_equal(col_result, expected_col_result)

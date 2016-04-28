@@ -164,15 +164,25 @@ class BoundColumn(LoadableTerm):
 
     @property
     def latest(self):
-        if self.dtype == bool_dtype:
-            from zipline.pipeline.filters import Latest
-        elif self.dtype == int64_dtype:
-            from zipline.pipeline.classifiers import Latest
+        from zipline.pipeline.factors import Factor, Latest as LatestFactor
+        from zipline.pipeline.filters import Filter, Latest as LatestFilter
+        from zipline.pipeline.classifiers import (
+            Classifier,
+            Latest as LatestClassifier,
+        )
+
+        dtype = self.dtype
+        if dtype in Filter.ALLOWED_DTYPES:
+            Latest = LatestFilter
+        elif dtype in Classifier.ALLOWED_DTYPES:
+            Latest = LatestClassifier
         else:
-            from zipline.pipeline.factors import Latest
+            assert dtype in Factor.ALLOWED_DTYPES, "Unknown dtype %s." % dtype
+            Latest = LatestFactor
+
         return Latest(
             inputs=(self,),
-            dtype=self.dtype,
+            dtype=dtype,
             missing_value=self.missing_value,
         )
 

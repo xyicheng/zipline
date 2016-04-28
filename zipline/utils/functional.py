@@ -56,6 +56,8 @@ def apply(f, *args, **kwargs):
 # Alias for use as a class decorator.
 instance = apply
 
+from zipline.utils.sentinel import sentinel
+
 
 def mapall(funcs, seq):
     """
@@ -242,3 +244,56 @@ def unzip(seq, elem_len=None):
     if elem_len is None:
         raise ValueError("cannot unzip empty sequence without 'elem_len'")
     return ((),) * elem_len
+
+
+_no_default = sentinel('_no_default')
+
+
+def getattrs(value, attrs, default=_no_default):
+    """
+    Perform a chained application of ``getattr`` on ``value`` with the values
+    in ``attrs``.
+
+    If ``default`` is supplied, return it if any of the attribute lookups fail.
+
+    Parameters
+    ----------
+    value : object
+        Root of the lookup chain.
+    attrs : iterable[str]
+        Sequence of attributes to look up.
+    default : object, optional
+        Value to return if any of the lookups fail.
+
+    Returns
+    -------
+    result : object
+        Result of the lookup sequence.
+
+    Example
+    -------
+    >>> class EmptyObject(object):
+    ...     pass
+    ...
+    >>> obj = EmptyObject()
+    >>> obj.foo = EmptyObject()
+    >>> obj.foo.bar = "value"
+    >>> getattrs(obj, ('foo', 'bar'))
+    'value'
+
+    >>> getattrs(obj, ('foo', 'buzz'))
+    Traceback (most recent call last):
+       ...
+    AttributeError: 'EmptyObject' object has no attribute 'buzz'
+
+    >>> getattrs(obj, ('foo', 'buzz'), 'default')
+    'default'
+    """
+    try:
+        for attr in attrs:
+            value = getattr(value, attr)
+    except AttributeError:
+        if default is _no_default:
+            raise
+        value = default
+    return value
