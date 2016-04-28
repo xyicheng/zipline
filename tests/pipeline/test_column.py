@@ -7,6 +7,7 @@ from unittest import TestCase
 from pandas import date_range, DataFrame
 from pandas.util.testing import assert_frame_equal
 
+from zipline.lib.labelarray import LabelArray
 from zipline.pipeline import Pipeline
 from zipline.pipeline.data.testing import TestingDataSet as TDS
 from zipline.testing import chrange, temp_pipeline_engine
@@ -35,6 +36,21 @@ class LatestTestCase(TestCase):
 
     def expected_latest(self, column, slice_):
         loader = self.engine.get_loader(column)
+
+        index = self.calendar[slice_]
+        columns = self.assets
+        values = loader.values(column.dtype, self.calendar, self.sids)[slice_]
+
+        if column.dtype.kind in ('O', 'S', 'U'):
+            # For string columns, we expect a categorical in the output.
+            return LabelArray(
+                values,
+                missing_value=column.missing_value,
+            ).as_categorical_frame(
+                index=index,
+                columns=columns,
+            )
+
         return DataFrame(
             loader.values(column.dtype, self.calendar, self.sids)[slice_],
             index=self.calendar[slice_],

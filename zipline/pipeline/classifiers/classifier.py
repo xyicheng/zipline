@@ -171,7 +171,7 @@ class ScalarStringCompare(SingleInputMixin, Filter):
     """
     window_length = 0
 
-    @expect_types(classifier=Classifier, compval=str)
+    @expect_types(classifier=Classifier, compval=(bytes, unicode))
     def __new__(cls, classifier, op, compval):
         return super(ScalarStringCompare, cls).__new__(
             ScalarStringCompare,

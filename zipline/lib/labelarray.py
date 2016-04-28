@@ -1,15 +1,15 @@
 """
 An ndarray subclass for working with arrays of strings.
 """
-from functools import partial, wraps
+from functools import partial
 from numbers import Number
 from operator import eq, ne
+import re
 
 import numpy as np
 from numpy import ndarray
 import pandas as pd
-
-from six.moves import map as imap
+from toolz import compose
 
 from zipline.utils.preprocess import preprocess
 from zipline.utils.sentinel import sentinel
@@ -19,7 +19,7 @@ from zipline.utils.input_validation import (
     expect_types,
     optional,
 )
-from zipline.utils.numpy_utils import is_object, int64_dtype, object_dtype
+from zipline.utils.numpy_utils import is_object, int64_dtype
 
 from ._factorize import (
     factorize_strings,
@@ -212,8 +212,34 @@ class LabelArray(ndarray):
         return pd.Categorical.from_codes(
             self.as_int_array(),
             self.categories,
+            ordered=False,
             name=name,
         )
+
+    def as_categorical_frame(self, index, columns, name=None):
+        """
+        Coerce self into a pandas DataFrame of Categoricals.
+        """
+        if len(self.shape) != 2:
+            raise ValueError(
+                "Can't convert a non-2D LabelArray into a DataFrame."
+            )
+
+        expected_shape = (len(index), len(columns))
+        if expected_shape != self.shape:
+            raise ValueError(
+                "Can't construct a DataFrame with provided indices:\n\n"
+                "LabelArray shape is {actual}, but index and columns imply "
+                "that shape should be {expected}.".format(
+                    actual=self.shape,
+                    expected=expected_shape,
+                )
+            )
+
+        return pd.Series(
+            index=pd.MultiIndex.from_product([index, columns]),
+            data=self.ravel().as_categorical(name=name),
+        ).unstack()
 
     def __setitem__(self, indexer, value):
         self_categories = self.categories
@@ -225,7 +251,7 @@ class LabelArray(ndarray):
             else:
                 raise CategoryMismatch(self_categories, value_categories)
 
-        elif isinstance(value, (str, unicode)):
+        elif isinstance(value, (bytes, unicode)):
             value_code = self.reverse_categories.get(value, None)
             if value_code is None:
                 raise ValueError("%r is not in LabelArray categories." % value)
@@ -268,7 +294,7 @@ class LabelArray(ndarray):
                 # This is fairly expensive, and should generally be avoided.
                 return op(self.as_string_array(), other)
 
-            elif isinstance(other, str):
+            elif isinstance(other, (bytes, unicode)):
                 i = self._reverse_categories.get(other, None)
                 if i is None:
                     # Requested string isn't in our categories.  Short circuit.
@@ -365,8 +391,8 @@ class LabelArray(ndarray):
 
     def empty_like(self, shape):
         """
-        Make an empty LabelArray with the same categories as ``self``, filled with
-        ``self.missing_value``.
+        Make an empty LabelArray with the same categories as ``self``, filled
+        with ``self.missing_value``.
         """
         out = np.full(
             shape,
@@ -382,20 +408,75 @@ class LabelArray(ndarray):
 
         return out
 
-    def map(self, f, dtype):
+    def apply(self, f, dtype):
         """
-        Map a function over elements of ``self``.
+        Map a function elementwise over entries in ``self``.
 
         ``f`` will be applied exactly once to each unique value in ``self``.
         """
-        results = np.array(list(imap(f, self.categories.flat)), dtype=dtype)
-        return results[self]
+        return np.vectorize(f, otypes=[dtype])(self.categories)[self]
 
-    def startswith(self, s):
-        return self.map(lambda elem: elem.startswith(s), dtype=bool)
+    def startswith(self, prefix):
+        """
+        Element-wise startswith.
 
-    def endswith(self, s):
-        return self.map(lambda elem: elem.endswith(s), dtype=bool)
+        Parameters
+        ----------
+        prefix : str
 
-    def contains(self, s):
-        return self.map(lambda elem: s in elem, dtype=bool)
+        Returns
+        -------
+        matches : np.ndarray[bool]
+            An array with the same shape as self indicating whether each
+            element of self started with ``prefix``.
+        """
+        return self.apply(lambda elem: elem.startswith(prefix), dtype=bool)
+
+    def endswith(self, suffix):
+        """
+        Elementwise endswith.
+
+        Parameters
+        ----------
+        suffix : str
+
+        Returns
+        -------
+        matches : np.ndarray[bool]
+            An array with the same shape as self indicating whether each
+            element of self ended with ``suffix``.w
+        """
+        return self.apply(lambda elem: elem.endswith(suffix), dtype=bool)
+
+    def contains(self, substring):
+        """
+        Elementwise contains.
+
+        Parameters
+        ----------
+        substring : str
+
+        Returns
+        -------
+        matches : np.ndarray[bool]
+            An array with the same shape as self indicating whether each
+            element of self ended with ``suffix``.
+        """
+        return self.apply(lambda elem: substring in elem, dtype=bool)
+
+    @preprocess(pattern=re.compile)
+    def matches(self, pattern):
+        """
+        Elementwise regex match.
+
+        Parameters
+        ----------
+        pattern : str or compiled regex
+
+        Returns
+        -------
+        matches : np.ndarray[bool]
+            An array with the same shape as self indicating whether each
+            element of self was matched by ``pattern``.
+        """
+        return self.apply(compose(bool, pattern.match))

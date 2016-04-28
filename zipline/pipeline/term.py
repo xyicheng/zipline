@@ -480,8 +480,8 @@ class ComputableTerm(Term):
     @expect_types(data=ndarray)
     def postprocess(self, data):
         """
-        Called with an result of ``self``, unravelled (i.e. 1-dimensional) after
-        any user-defined screens have been applied.
+        Called with an result of ``self``, unravelled (i.e. 1-dimensional)
+        after any user-defined screens have been applied.
 
         This is mostly useful for transforming the dtype of an output, e.g., to
         convert a LabelArray into a pandas Categorical.

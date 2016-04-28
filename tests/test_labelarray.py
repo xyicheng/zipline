@@ -42,14 +42,26 @@ class LabelArrayTestCase(ZiplineTestCase):
         )
 
     @parameter_space(
+        __fail_fast=True,
         s=['', 'a', 'z', 'aa', 'not in the array'],
         shape=[(27,), (9, 3), (3, 9), (3, 3, 3)],
+        array_astype=(bytes, unicode, object),
+        scalar_astype=(bytes, unicode, object),
     )
-    def test_compare_to_str(self, s, shape):
-        strs = self.strs.reshape(shape)
+    def test_compare_to_str(self, s, shape, array_astype, scalar_astype):
+        strs = self.strs.reshape(shape).astype(array_astype)
         arr = LabelArray(strs, missing_value='')
         check_arrays(strs == s, arr == s)
         check_arrays(strs != s, arr != s)
+
+        np_startswith = np.vectorize(lambda elem: elem.startswith(s))
+        check_arrays(arr.startswith(s), np_startswith(strs))
+
+        np_endswith = np.vectorize(lambda elem: elem.endswith(s))
+        check_arrays(arr.endswith(s), np_endswith(strs))
+
+        np_contains = np.vectorize(lambda elem: s in elem)
+        check_arrays(arr.contains(s), np_contains(strs))
 
     def test_compare_to_str_array(self):
         strs = self.strs
@@ -64,20 +76,20 @@ class LabelArrayTestCase(ZiplineTestCase):
         def broadcastable_col(value, dtype):
             return np.full((1, shape[1]), value, dtype=strs.dtype)
 
-        for comparator, dtype, unique_value in product((eq, ne),
-                                                       (strs.dtype, object),
-                                                       set(self.rowvalues)):
+        for comparator, dtype, value in product((eq, ne),
+                                                (bytes, unicode, object),
+                                                set(self.rowvalues)):
             check_arrays(
-                comparator(arr, np.full_like(strs, unique_value)),
-                comparator(strs, unique_value),
+                comparator(arr, np.full_like(strs, value)),
+                comparator(strs, value),
             )
             check_arrays(
-                comparator(arr, broadcastable_row(unique_value, dtype=dtype)),
-                comparator(strs, unique_value),
+                comparator(arr, broadcastable_row(value, dtype=dtype)),
+                comparator(strs, value),
             )
             check_arrays(
-                comparator(arr, broadcastable_col(unique_value, dtype=dtype)),
-                comparator(strs, unique_value),
+                comparator(arr, broadcastable_col(value, dtype=dtype)),
+                comparator(strs, value),
             )
 
     @parameter_space(

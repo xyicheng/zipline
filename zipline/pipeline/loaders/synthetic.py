@@ -24,12 +24,10 @@ from zipline.data.us_equity_pricing import (
 )
 from zipline.utils.numpy_utils import (
     bool_dtype,
-    bytes_dtype,
     datetime64ns_dtype,
     float64_dtype,
     int64_dtype,
     object_dtype,
-    unicode_dtype,
 )
 
 

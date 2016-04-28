@@ -12,6 +12,10 @@ from zipline.utils.numpy_utils import (
 from .base import BasePipelineTestCase
 
 
+bytes_dtype = np.dtype('S3')
+unicode_dtype = np.dtype('U3')
+
+
 class ClassifierTestCase(BasePipelineTestCase):
 
     @parameter_space(mv=[-1, 0, 1, 999])
@@ -74,8 +78,14 @@ class ClassifierTestCase(BasePipelineTestCase):
             mask=self.build_mask(self.ones_mask(shape=data.shape)),
         )
 
-    @parameter_space(compval=['a', 'ab', 'not in the array'])
-    def test_string_eq(self, compval):
+    @parameter_space(
+        __fail_fast=True,
+        compval=['a', 'ab', 'not in the array'],
+        category_dtype=(bytes_dtype, categorical_dtype, unicode_dtype),
+    )
+    def test_string_eq(self, compval, category_dtype):
+
+        compval = category_dtype.type(compval)
 
         class C(Classifier):
             dtype = categorical_dtype
@@ -88,10 +98,13 @@ class ClassifierTestCase(BasePipelineTestCase):
         # There's no significance to the values here other than that they
         # contain a mix of the comparison value and other values.
         data = LabelArray(
-            [['',    'a',  'ab', 'ba'],
-             ['z',  'ab',   'a', 'ab'],
-             ['aa', 'ab',    '', 'ab'],
-             ['aa',  'a',  'ba', 'ba']],
+            np.asarray(
+                [['',    'a',  'ab', 'ba'],
+                 ['z',  'ab',   'a', 'ab'],
+                 ['aa', 'ab',    '', 'ab'],
+                 ['aa',  'a',  'ba', 'ba']],
+                dtype=category_dtype.type,
+            ),
             missing_value='',
         )
 
@@ -165,8 +178,11 @@ class ClassifierTestCase(BasePipelineTestCase):
         __fail_fast=True,
         compval=['a', 'ab', '', 'not in the array'],
         missing=['a', 'ab', '', 'not in the array'],
+        category_dtype=(bytes_dtype, unicode_dtype, categorical_dtype),
     )
-    def test_string_not_equal(self, compval, missing):
+    def test_string_not_equal(self, compval, missing, category_dtype):
+
+        compval = category_dtype.type(compval)
 
         class C(Classifier):
             dtype = categorical_dtype
@@ -179,10 +195,13 @@ class ClassifierTestCase(BasePipelineTestCase):
         # There's no significance to the values here other than that they
         # contain a mix of the comparison value and other values.
         data = LabelArray(
-            [['',    'a',  'ab', 'ba'],
-             ['z',  'ab',   'a', 'ab'],
-             ['aa', 'ab',    '', 'ab'],
-             ['aa',  'a',  'ba', 'ba']],
+            np.asarray(
+                [['',    'a',  'ab', 'ba'],
+                 ['z',  'ab',   'a', 'ab'],
+                 ['aa', 'ab',    '', 'ab'],
+                 ['aa',  'a',  'ba', 'ba']],
+                dtype=category_dtype,
+            ),
             missing_value=missing,
         )
 
@@ -200,4 +219,39 @@ class ClassifierTestCase(BasePipelineTestCase):
             },
             initial_workspace={c: data},
             mask=self.build_mask(self.ones_mask(shape=data.shape)),
+        )
+
+    @parameter_space(
+        __fail_fast=True,
+        compval=['a', 'b', 'ab', 'not in the array'],
+        missing=['a', 'ab', '', 'not in the array'],
+        category_dtype=(categorical_dtype, bytes_dtype, unicode_dtype),
+    )
+    def test_string_elementwise_predicates(self,
+                                           compval,
+                                           missing,
+                                           category_dtype):
+
+        missing = category_dtype.type(missing)
+        compval = category_dtype.type(compval)
+
+        class C(Classifier):
+            dtype = category_dtype
+            missing_value = missing
+            inputs = ()
+            window_length = 0
+
+        c = C()
+
+        # There's no significance to the values here other than that they
+        # contain a mix of the comparison value and other values.
+        data = LabelArray(
+            np.asarray(
+                [['',    'a',  'ab', 'ba'],
+                 ['z',  'ab',   'a', 'ab'],
+                 ['aa', 'ab',    '', 'ab'],
+                 ['aa',  'a',  'ba', 'ba']],
+                dtype=category_dtype,
+            ),
+            missing_value=missing,
         )

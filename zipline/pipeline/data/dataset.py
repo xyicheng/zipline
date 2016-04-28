@@ -14,11 +14,7 @@ from zipline.pipeline.term import (
     Term,
 )
 from zipline.utils.input_validation import ensure_dtype
-from zipline.utils.numpy_utils import (
-    bool_dtype,
-    int64_dtype,
-    NoDefaultMissingValue,
-)
+from zipline.utils.numpy_utils import NoDefaultMissingValue
 from zipline.utils.preprocess import preprocess
 
 
@@ -26,7 +22,6 @@ class Column(object):
     """
     An abstract column of data, not yet associated with a dataset.
     """
-
     @preprocess(dtype=ensure_dtype)
     def __init__(self, dtype, missing_value=NotSpecified):
         self.dtype = dtype
